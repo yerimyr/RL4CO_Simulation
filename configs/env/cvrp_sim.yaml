@@ -1,0 +1,15 @@
+_target_: rl4co.envs.routing.cvrp_sim.env.CVRPSimEnv
+name: cvrp
+
+generator_params:
+  num_loc: 20
+  loc_distribution: uniform
+
+simulator_params:
+  num_mc: 8  # number of monte carlo samples
+  noise_std: 0.10  # standard deviation of noise
+  seed: 1234
+
+data_dir: ${paths.root_dir}/data/vrp
+val_file: vrp${env.generator_params.num_loc}_val_seed4321.npz
+test_file: vrp${env.generator_params.num_loc}_test_seed1234.npz
