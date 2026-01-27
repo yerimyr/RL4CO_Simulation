@@ -20,10 +20,10 @@ logger:
 
 
 model:
-  batch_size: 512
+  batch_size: 64
   val_batch_size: 1024
   test_batch_size: 1024
-  train_data_size: 51200   # train_data_size만큼의 문제 인스턴스가 만들어지고, batch_size만큼의 데이터를 train_data_size / batch_size만큼 학습함. 이 과정을 epoch만큼 반복.
+  train_data_size: 640   # train_data_size만큼의 문제 인스턴스가 만들어지고, batch_size만큼의 데이터를 train_data_size / batch_size만큼 학습함. 이 과정을 epoch만큼 반복.
   val_data_size: 10_000
   test_data_size: 10_000
   optimizer_kwargs:

@@ -1,0 +1,20 @@
+_target_: rl4co.envs.scheduling.ffsp_sim.env.FFSPSimEnv
+name: ffsp
+
+generator_params:
+  # 원래 ffsp.yaml과 동일하게 맞춰주세요
+  # 예시:
+  num_job: 20
+  num_stage: 3
+  num_machine: 4
+  flatten_stages: False
+
+simulator_params:
+  mode: deterministic
+  num_mc: 8
+  noise_std: 0.1
+  seed: 1234
+
+data_dir: ${paths.root_dir}/data/ffsp
+val_file: ffsp${env.generator_params.num_job}_val_seed4321.npz
+test_file: ffsp${env.generator_params.num_job}_test_seed1234.npz

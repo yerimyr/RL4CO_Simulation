@@ -45,6 +45,12 @@ def simulate_travel_time(
         Mean total travel time per route
     """
 
+    # DEBUG: print device once
+    if not hasattr(simulate_travel_time, "_printed"):
+        print(f"[sim] locs_ordered.device={locs_ordered.device}")
+        simulate_travel_time._printed = True
+
+
     if seed is not None:
         torch.manual_seed(seed)
 
