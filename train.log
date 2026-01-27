@@ -2139,3 +2139,211 @@ UnboundLocalError: cannot access local variable 'distances' where it is not asso
 [2026-01-27 10:30:57,348][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
 [2026-01-27 10:31:09,300][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-30-56
 [2026-01-27 10:31:09,312][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-01-27 10:45:36,312][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-01-27 10:45:36,318][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-01-27 10:45:36,350][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.routing.cvrp_sim.env.CVRPSimEnv>
+[2026-01-27 10:45:36,606][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-01-27 10:45:36,663][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:45:36,676][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-01-27 10:45:36,676][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-01-27 10:45:36,676][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-01-27 10:45:36,676][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-01-27 10:45:36,692][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-01-27 10:45:36,762][rl4co.tasks.train][INFO] - Starting training!
+[2026-01-27 10:45:36,775][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-01-27 10:45:36,775][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-01-27 10:45:36,777][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-01-27 10:45:36,777][rl4co.envs.common.base][INFO] - Loading val dataset from C:\RL4CO_Simulation/data/vrp\vrp50_val_seed4321.npz
+[2026-01-27 10:45:36,835][rl4co.envs.common.base][INFO] - Loading test dataset from C:\RL4CO_Simulation/data/vrp\vrp50_test_seed1234.npz
+[2026-01-27 10:45:37,056][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-01-27 10:45:37,112][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-01-27 10:45:43,341][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-01-27 10:45:43,341][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-01-27 10:45:46,976][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-01-27 10:45:49,239][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: -50.907, Baseline mean: -51.326
+[2026-01-27 10:45:49,239][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-01-27 10:45:49,239][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-01-27 10:45:49,239][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-01-27 10:45:49,395][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-01-27 10:45:51,601][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-01-27 10:45:51,601][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-01-27 10:45:53,880][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-01-27 10:45:55,239][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: -20.435, Baseline mean: -51.038
+[2026-01-27 10:45:55,239][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-01-27 10:45:55,239][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-01-27 10:45:55,253][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-01-27 10:45:55,320][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-01-27 10:45:56,692][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-01-27 10:45:58,931][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-01-27 10:46:00,287][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: -20.646, Baseline mean: -20.452
+[2026-01-27 10:46:00,287][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-01-27 10:46:02,436][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-01-27 10:46:03,822][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: -20.767, Baseline mean: -20.452
+[2026-01-27 10:46:03,822][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-01-27 10:46:03,956][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-45-36
+[2026-01-27 10:46:03,956][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-01-27 10:46:15,395][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-01-27 10:46:15,401][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-01-27 10:46:15,432][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.scheduling.ffsp_sim.env.FFSPSimEnv>
+[2026-01-27 10:46:15,675][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.MatNet>
+[2026-01-27 10:46:15,862][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:46:15,862][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:46:15,879][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:46:16,020][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-01-27 10:46:16,020][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-01-27 10:46:16,020][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-01-27 10:46:16,035][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-01-27 10:46:16,035][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-01-27 10:46:16,035][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-01-27 10:46:16,035][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-01-27 10:46:16,035][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-01-27 10:46:16,035][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-01-27 10:46:16,051][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-01-27 10:46:16,113][rl4co.tasks.train][INFO] - Starting training!
+[2026-01-27 10:46:16,300][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-01-27 10:46:16,300][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-01-27 10:46:16,314][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-01-27 10:46:16,314][rl4co.envs.common.base][INFO] - Loading val dataset from C:\RL4CO_Simulation/data/ffsp\ffsp20_val_seed4321.npz
+[2026-01-27 10:46:16,314][rl4co.envs.common.base][ERROR] - Provided file name C:\RL4CO_Simulation/data/ffsp\ffsp20_val_seed4321.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-01-27 10:46:16,316][rl4co.envs.common.base][INFO] - Loading test dataset from C:\RL4CO_Simulation/data/ffsp\ffsp20_test_seed1234.npz
+[2026-01-27 10:46:16,316][rl4co.envs.common.base][ERROR] - Provided file name C:\RL4CO_Simulation/data/ffsp\ffsp20_test_seed1234.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-01-27 10:46:16,440][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-01-27 10:46:16,440][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-01-27 10:47:04,535][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-46-15
+[2026-01-27 10:47:04,535][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-01-27 10:50:03,153][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-01-27 10:50:03,157][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-01-27 10:50:03,191][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.routing.cvrp_sim.env.CVRPSimEnv>
+[2026-01-27 10:50:03,442][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-01-27 10:50:03,503][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:03,515][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-01-27 10:50:03,515][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-01-27 10:50:03,515][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-01-27 10:50:03,520][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-01-27 10:50:03,521][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-01-27 10:50:03,521][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-01-27 10:50:03,521][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-01-27 10:50:03,521][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-01-27 10:50:03,521][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-01-27 10:50:03,536][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-01-27 10:50:03,605][rl4co.tasks.train][INFO] - Starting training!
+[2026-01-27 10:50:03,613][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-01-27 10:50:03,613][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-01-27 10:50:03,620][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-01-27 10:50:03,620][rl4co.envs.common.base][INFO] - Loading val dataset from C:\RL4CO_Simulation/data/vrp\vrp50_val_seed4321.npz
+[2026-01-27 10:50:03,683][rl4co.envs.common.base][INFO] - Loading test dataset from C:\RL4CO_Simulation/data/vrp\vrp50_test_seed1234.npz
+[2026-01-27 10:50:03,894][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-01-27 10:50:03,941][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-01-27 10:50:10,153][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-01-27 10:50:10,154][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-01-27 10:50:13,534][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-01-27 10:50:15,763][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: -50.907, Baseline mean: -51.326
+[2026-01-27 10:50:15,768][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-01-27 10:50:15,768][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-01-27 10:50:15,773][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-01-27 10:50:15,927][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-01-27 10:50:18,145][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-01-27 10:50:18,145][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-01-27 10:50:19,705][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-50-03
+[2026-01-27 10:50:19,705][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-01-27 10:50:30,818][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-01-27 10:50:30,826][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-01-27 10:50:30,856][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.scheduling.ffsp_sim.env.FFSPSimEnv>
+[2026-01-27 10:50:31,097][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.MatNet>
+[2026-01-27 10:50:31,304][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:31,311][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:31,315][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:31,529][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-01-27 10:50:31,529][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-01-27 10:50:31,532][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-01-27 10:50:31,532][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-01-27 10:50:31,532][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-01-27 10:50:31,533][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-01-27 10:50:31,534][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-01-27 10:50:31,534][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-01-27 10:50:31,534][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-01-27 10:50:31,534][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 92, in _call_target
+    return _target_(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\RL4CO_Simulation\rl4co\utils\trainer.py", line 104, in __init__
+    super().__init__(
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\pytorch\utilities\argparse.py", line 70, in insert_env_defaults
+    return fn(self, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 417, in __init__
+    self._accelerator_connector = _AcceleratorConnector(
+                                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\pytorch\trainer\connectors\accelerator_connector.py", line 145, in __init__
+    self._set_parallel_devices_and_init_accelerator()
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\pytorch\trainer\connectors\accelerator_connector.py", line 364, in _set_parallel_devices_and_init_accelerator
+    self._devices_flag = accelerator_cls.parse_devices(self._devices_flag)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\pytorch\accelerators\cuda.py", line 88, in parse_devices
+    return _parse_gpu_ids(devices, include_cuda=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\fabric\utilities\device_parser.py", line 86, in _parse_gpu_ids
+    gpus = _normalize_parse_gpu_string_input(gpus)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\lightning\fabric\utilities\device_parser.py", line 113, in _normalize_parse_gpu_string_input
+    return int(s.strip())
+           ^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\RL4CO_Simulation\rl4co\utils\utils.py", line 39, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "C:\RL4CO_Simulation\rl4co\tasks\train.py", line 51, in run
+    trainer: RL4COTrainer = hydra.utils.instantiate(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 226, in instantiate
+    return instantiate_node(
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 347, in instantiate_node
+    return _call_target(_target_, partial, args, kwargs, full_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jyr03\anaconda3\envs\rl4co_sim\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 97, in _call_target
+    raise InstantiationException(msg) from e
+hydra.errors.InstantiationException: Error in call to target 'rl4co.utils.trainer.RL4COTrainer':
+ValueError("invalid literal for int() with base 10: ''")
+full_key: trainer
+[2026-01-27 10:50:31,549][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-50-30
+[2026-01-27 10:50:31,549][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-01-27 10:50:38,355][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-01-27 10:50:38,358][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-01-27 10:50:38,380][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.scheduling.ffsp_sim.env.FFSPSimEnv>
+[2026-01-27 10:50:38,628][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.MatNet>
+[2026-01-27 10:50:38,817][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:38,836][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:38,841][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-01-27 10:50:38,989][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-01-27 10:50:38,989][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-01-27 10:50:38,989][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-01-27 10:50:38,989][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-01-27 10:50:39,012][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-01-27 10:50:39,067][rl4co.tasks.train][INFO] - Starting training!
+[2026-01-27 10:50:39,262][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-01-27 10:50:39,262][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-01-27 10:50:39,262][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-01-27 10:50:39,262][rl4co.envs.common.base][INFO] - Loading val dataset from C:\RL4CO_Simulation/data/ffsp\ffsp20_val_seed4321.npz
+[2026-01-27 10:50:39,262][rl4co.envs.common.base][ERROR] - Provided file name C:\RL4CO_Simulation/data/ffsp\ffsp20_val_seed4321.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-01-27 10:50:39,262][rl4co.envs.common.base][INFO] - Loading test dataset from C:\RL4CO_Simulation/data/ffsp\ffsp20_test_seed1234.npz
+[2026-01-27 10:50:39,262][rl4co.envs.common.base][ERROR] - Provided file name C:\RL4CO_Simulation/data/ffsp\ffsp20_test_seed1234.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-01-27 10:50:39,384][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-01-27 10:50:39,386][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-01-27 10:50:53,214][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-50-38
+[2026-01-27 10:50:53,216][rl4co.utils.utils][INFO] - Closing loggers...

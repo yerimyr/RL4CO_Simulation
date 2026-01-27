@@ -14,6 +14,7 @@ simulator_params:
   num_mc: 8
   noise_std: 0.1
   seed: 1234
+  num_workers: 5
 
 data_dir: ${paths.root_dir}/data/ffsp
 val_file: ffsp${env.generator_params.num_job}_val_seed4321.npz

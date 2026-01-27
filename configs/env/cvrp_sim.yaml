@@ -6,9 +6,11 @@ generator_params:
   loc_distribution: uniform
 
 simulator_params:
-  num_mc: 8  # number of monte carlo samples
-  noise_std: 0.10  # standard deviation of noise
+  mode: deterministic
+  num_mc: 8
+  noise_std: 0.10
   seed: 1234
+  num_workers: 5   # 추가
 
 data_dir: ${paths.root_dir}/data/vrp
 val_file: vrp${env.generator_params.num_loc}_val_seed4321.npz 
