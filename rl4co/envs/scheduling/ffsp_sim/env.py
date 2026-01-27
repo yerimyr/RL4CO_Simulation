@@ -18,8 +18,8 @@ class FFSPSimEnv(FFSPEnv):
         # FFSPEnv에서는 done 시 reward를 이미 넣지만,
         # 여기서는 시뮬레이터 기반 reward로 덮어씀.
         if td["done"].all():
-            schedule = td["schedule"]
-            job_duration = td["job_duration"]
+            schedule = td["schedule"].cpu()
+            job_duration = td["job_duration"].cpu()
             makespan = simulate_makespan(
                 schedule,
                 job_duration,

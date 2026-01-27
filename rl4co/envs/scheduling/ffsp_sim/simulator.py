@@ -18,6 +18,10 @@ def simulate_makespan(
     returns: (B,) makespan
     """
 
+    if not hasattr(simulate_makespan, "_printed"):
+        print(f"[sim] schedule.device={schedule.device}")
+        simulate_makespan._printed = True
+
     if seed is not None:
         torch.manual_seed(seed)
 

@@ -24,7 +24,7 @@ class CVRPSimEnv(CVRPEnv):
         )  
 
         total_time = simulate_travel_time(
-            locs_ordered,
+            locs_ordered.cpu(),
             **self.simulator_params,
         )
 
