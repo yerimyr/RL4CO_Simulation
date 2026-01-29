@@ -28,4 +28,4 @@ class CVRPSimEnv(CVRPEnv):
             **self.simulator_params,
         )
 
-        return -total_time
+        return -total_time.to(td.device)

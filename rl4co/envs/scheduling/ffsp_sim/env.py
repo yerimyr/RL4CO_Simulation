@@ -25,6 +25,6 @@ class FFSPSimEnv(FFSPEnv):
                 job_duration,
                 **self.simulator_params,
             )
-            td.set("reward", -makespan)
+            td.set("reward", -makespan.to(td.device))
 
         return td
