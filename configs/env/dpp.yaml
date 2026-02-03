@@ -9,4 +9,4 @@ generator_params:
 val_file: test.npz # same as test_file due to data scarcity
 test_file: test.npz
 
-sim_num_workers: 4
+sim_num_workers: 5

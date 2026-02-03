@@ -3,6 +3,8 @@ from typing import IO, Any, cast
 import torch
 import torch.nn as nn
 
+import time
+
 from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from lightning.pytorch.core.saving import _load_from_checkpoint
 from tensordict import TensorDict
@@ -14,6 +16,8 @@ from rl4co.models.rl.common.utils import RewardScaler
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.utils.lightning import get_lightning_device
 from rl4co.utils.pylogger import get_pylogger
+
+from pathlib import Path
 
 log = get_pylogger(__name__)
 
@@ -58,15 +62,72 @@ class REINFORCE(RL4COLitModule):
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
-        # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
-        out = self.policy(td, self.env, phase=phase, select_best=phase != "train")
 
-        # Compute loss
+        # 1) policy(인코더-디코더) 시간
+        self._sync_if_cuda()
+        t0 = time.perf_counter()
+        out = self.policy(td, self.env, phase=phase, select_best=phase != "train", calc_reward=False)
+        self._sync_if_cuda()
+        t1 = time.perf_counter()
+
+        # 2) reward(시뮬레이터) 시간
+        reward = self.env.get_reward(td, out["actions"])
+        self._sync_if_cuda()
+        t2 = time.perf_counter()
+        out["reward"] = reward
+
+        # 3) loss 계산 시간
         if phase == "train":
-            out = self.calculate_loss(td, batch, out)
+            out = self.calculate_loss(
+                td,
+                batch,
+                out,
+                reward=reward,
+                log_likelihood=out["log_likelihood"],
+            )
+            self._sync_if_cuda()
+            t3 = time.perf_counter()
+        else:
+            t3 = t2
+
+        # CSV 기록
+        self._append_timing_row(
+            phase=phase,
+            batch_idx=batch_idx,
+            t_policy_ms=(t1 - t0) * 1000.0,
+            t_reward_ms=(t2 - t1) * 1000.0,
+            t_loss_ms=(t3 - t2) * 1000.0,
+        )
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+    
+    def _sync_if_cuda(self):
+        if torch.cuda.is_available() and torch.cuda.is_initialized():
+            torch.cuda.synchronize()
+
+    def _get_timing_csv_path(self):
+        log_dir = getattr(self.trainer, "log_dir", None) or self.trainer.default_root_dir
+        return Path(log_dir) / "timings.csv"
+
+    def _append_timing_row(
+        self,
+        phase: str,
+        batch_idx: int,
+        t_policy_ms: float,
+        t_reward_ms: float,
+        t_loss_ms: float,
+    ):
+        path = self._get_timing_csv_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not path.exists()
+        with path.open("a", encoding="utf-8", newline="") as f:
+            if write_header:
+                f.write("global_step,epoch,batch_idx,phase,policy_ms,reward_ms,loss_ms\n")
+            f.write(
+                f"{self.global_step},{self.current_epoch},{batch_idx},{phase},"
+                f"{t_policy_ms:.6f},{t_reward_ms:.6f},{t_loss_ms:.6f}\n"
+            )
 
     def calculate_loss(
         self,

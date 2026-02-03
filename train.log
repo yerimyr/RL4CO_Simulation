@@ -2462,3 +2462,440 @@ full_key: trainer
 [2026-02-03 14:23:23,071][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 9.203, Baseline mean: 9.204
 [2026-02-03 14:23:23,071][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
 [2026-02-03 14:23:23,071][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:32:01,850][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-03 14:32:01,854][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-03 14:32:01,877][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.DPPEnv>
+[2026-02-03 14:32:02,156][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-02-03 14:32:02,220][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-03 14:32:02,235][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-02-03 14:32:02,235][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-03 14:32:02,235][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-02-03 14:32:02,242][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-03 14:32:02,260][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-03 14:32:02,482][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-03 14:32:02,518][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-03 14:32:02,518][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-03 14:32:02,518][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-03 14:32:02,538][rl4co.envs.common.base][INFO] - Loading val dataset from data/test.npz
+[2026-02-03 14:32:02,538][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-02-03 14:32:02,538][rl4co.envs.common.base][INFO] - Loading test dataset from data/test.npz
+[2026-02-03 14:32:02,538][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-02-03 14:32:02,614][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:32:02,614][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:32:07,209][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-03 14:32:13,273][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:32:14,015][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 10.038, Baseline mean: 9.165
+[2026-02-03 14:32:14,018][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 14:32:14,018][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:32:14,023][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:32:14,024][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:32:14,755][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-02-03 14:32:14,756][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:32:25,283][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:32:26,024][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 10.141
+[2026-02-03 14:32:26,024][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 14:32:26,025][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:32:26,030][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:32:26,031][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:32:26,763][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:32:37,252][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:32:37,996][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.510, Baseline mean: 12.504
+[2026-02-03 14:32:37,996][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 14:32:37,997][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:32:38,001][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:32:38,001][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:32:38,735][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:32:49,193][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:32:49,923][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.527, Baseline mean: 12.525
+[2026-02-03 14:32:49,923][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 14:32:49,923][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:32:49,926][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:32:49,926][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:32:50,669][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:01,133][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:01,869][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.534, Baseline mean: 12.534
+[2026-02-03 14:33:01,869][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.039
+[2026-02-03 14:33:01,869][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:33:01,877][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:33:01,877][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:33:02,623][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:13,083][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:13,824][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:33:13,825][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:24,110][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:24,837][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:33:24,837][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.210
+[2026-02-03 14:33:24,837][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:35,123][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:35,855][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:33:35,855][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:46,114][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:46,851][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:33:46,851][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:33:57,116][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:33:57,854][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:33:57,854][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:34:08,144][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:34:08,876][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:34:08,876][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.330
+[2026-02-03 14:34:08,876][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:34:19,242][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:34:19,975][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:34:19,975][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.475
+[2026-02-03 14:34:19,975][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:34:30,455][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:34:31,197][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:34:31,197][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.486
+[2026-02-03 14:34:31,197][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:34:41,472][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:34:42,208][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:34:42,208][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:34:52,503][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:34:53,235][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:34:53,237][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.093
+[2026-02-03 14:34:53,237][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:03,675][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:04,413][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:04,413][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.070
+[2026-02-03 14:35:04,413][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:14,913][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:15,671][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:15,672][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.089
+[2026-02-03 14:35:15,672][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:25,939][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:26,673][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:26,674][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.263
+[2026-02-03 14:35:26,674][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:36,954][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:37,695][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:37,696][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.409
+[2026-02-03 14:35:37,696][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:47,978][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:48,725][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:48,725][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:35:59,003][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:35:59,732][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:35:59,732][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.424
+[2026-02-03 14:35:59,732][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:36:09,993][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:36:10,728][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:36:10,728][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.252
+[2026-02-03 14:36:10,728][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:36:20,995][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:36:21,728][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:36:21,728][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.054
+[2026-02-03 14:36:21,728][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:36:32,013][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:36:32,746][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:36:32,746][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:36:43,018][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:36:43,745][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:36:43,745][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.465
+[2026-02-03 14:36:43,745][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:36:54,010][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:36:54,747][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:36:54,747][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.286
+[2026-02-03 14:36:54,747][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:37:05,024][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:37:05,757][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:37:05,757][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.234
+[2026-02-03 14:37:05,758][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:37:16,127][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:37:16,854][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:37:16,854][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:37:27,142][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:37:27,879][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:37:27,879][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:37:38,174][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:37:38,909][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.376, Baseline mean: 12.377
+[2026-02-03 14:37:38,909][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:37:49,194][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:37:49,923][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:37:49,923][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:00,454][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:01,217][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:01,218][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.279
+[2026-02-03 14:38:01,219][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:11,682][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:12,443][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:12,443][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:23,001][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:23,744][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:23,745][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.171
+[2026-02-03 14:38:23,745][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:34,411][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:35,162][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:35,162][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.390
+[2026-02-03 14:38:35,162][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:45,595][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:46,331][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:46,331][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.187
+[2026-02-03 14:38:46,331][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:38:56,894][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:38:57,643][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:38:57,644][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.169
+[2026-02-03 14:38:57,644][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:39:08,004][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:39:08,659][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.377, Baseline mean: 12.377
+[2026-02-03 14:39:08,659][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.131
+[2026-02-03 14:39:08,659][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:39:18,907][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:39:19,662][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.378, Baseline mean: 12.377
+[2026-02-03 14:39:19,663][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.044
+[2026-02-03 14:39:19,663][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 14:39:19,668][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:39:19,670][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:39:20,420][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:39:30,852][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:39:31,599][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:39:31,599][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:39:42,141][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:39:42,894][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:39:42,894][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:39:53,367][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:39:54,110][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:39:54,110][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.494
+[2026-02-03 14:39:54,110][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:40:04,879][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:40:05,643][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:40:05,643][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:40:16,713][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:40:17,496][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:40:17,496][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:40:28,605][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:40:29,364][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:40:29,364][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:40:40,247][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:40:41,030][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:40:41,030][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:40:51,947][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:40:52,739][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:40:52,740][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.484
+[2026-02-03 14:40:52,740][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:41:03,548][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:41:04,299][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:41:04,299][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:41:15,224][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:41:15,954][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:41:15,954][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:41:26,823][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:41:27,556][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:41:27,556][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:41:38,501][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:41:39,238][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:41:39,238][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:41:49,779][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:41:50,556][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:41:50,556][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:01,955][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:02,644][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:42:02,644][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:13,103][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:13,845][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:42:13,845][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:24,171][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:24,902][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:42:24,902][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:35,316][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:36,059][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:42:36,059][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:46,408][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:47,148][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:42:47,148][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:42:57,391][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:42:58,113][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:42:58,113][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:43:08,672][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:43:09,431][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:43:09,431][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:43:19,910][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:43:20,660][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:43:20,660][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:43:31,243][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:43:31,978][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:43:31,978][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:43:42,372][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:43:43,115][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:43:43,115][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.314
+[2026-02-03 14:43:43,115][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:43:53,425][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:43:54,104][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:43:54,104][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.458
+[2026-02-03 14:43:54,104][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:04,071][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:44:04,757][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:44:04,757][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:14,930][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:44:15,649][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:44:15,649][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.424
+[2026-02-03 14:44:15,649][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:26,284][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:44:27,025][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:44:27,025][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:37,362][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:44:38,105][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:44:38,105][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:48,457][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:44:49,195][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:44:49,195][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:44:59,532][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:00,266][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:45:00,266][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:45:10,658][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:11,390][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:45:11,390][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:45:21,693][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:22,438][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:45:22,438][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:45:32,743][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:33,478][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:45:33,479][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:45:43,826][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:44,571][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:45:44,571][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:45:55,024][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:45:55,754][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:45:55,754][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:46:06,154][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:46:06,920][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:46:06,924][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.463
+[2026-02-03 14:46:06,924][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:46:17,267][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:46:18,024][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:46:18,025][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.351
+[2026-02-03 14:46:18,025][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:46:28,408][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:46:29,138][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:46:29,138][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:46:39,628][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:46:40,404][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:46:40,404][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:46:51,214][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:46:52,018][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:46:52,019][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:02,519][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:03,273][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:47:03,274][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:13,394][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:14,076][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:47:14,076][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.406
+[2026-02-03 14:47:14,077][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:24,549][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:25,320][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:47:25,320][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.488
+[2026-02-03 14:47:25,320][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:35,932][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:36,693][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:47:36,693][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:47,813][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:48,530][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:47:48,530][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:47:59,110][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:47:59,854][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:47:59,854][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:48:09,872][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:48:10,628][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:48:10,629][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.296
+[2026-02-03 14:48:10,630][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:48:21,506][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:48:22,172][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:48:22,172][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:48:32,844][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:48:33,498][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:48:33,498][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:48:43,777][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:48:44,531][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:48:44,531][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:48:54,654][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:48:55,405][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:48:55,405][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:49:05,520][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:49:06,254][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:49:06,254][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:49:16,604][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:49:17,350][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:49:17,350][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.231
+[2026-02-03 14:49:17,350][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:49:27,713][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:49:28,447][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:49:28,448][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.350
+[2026-02-03 14:49:28,448][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:49:38,799][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:49:39,548][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:49:39,548][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.461
+[2026-02-03 14:49:39,548][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:49:49,878][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:49:50,621][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:49:50,621][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:50:00,830][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:50:01,572][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.546, Baseline mean: 12.546
+[2026-02-03 14:50:01,572][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:50:12,126][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:50:12,854][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:50:12,854][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:50:23,069][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:50:23,812][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:50:23,812][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:50:34,492][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:50:35,256][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:50:35,256][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 14:50:45,885][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:50:46,643][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 12.546
+[2026-02-03 14:50:46,663][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-02-03_14-32-01
+[2026-02-03 14:50:46,663][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-03 14:50:47,419][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
+[2026-02-03 15:14:00,267][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-03 15:14:00,267][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-03 15:14:00,311][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.DPPEnv>
+[2026-02-03 15:14:00,578][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-02-03 15:14:00,644][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-03 15:14:00,666][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-03 15:14:00,666][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-03 15:14:00,668][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-03 15:14:00,669][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-03 15:14:00,669][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-03 15:14:00,670][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-02-03 15:14:00,670][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-03 15:14:00,670][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2026-02-03 15:14:00,672][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-03 15:14:00,689][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-03 15:14:00,759][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-03 15:14:00,797][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-03 15:14:00,797][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-03 15:14:00,797][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-03 15:14:00,813][rl4co.envs.common.base][INFO] - Loading val dataset from data/test.npz
+[2026-02-03 15:14:00,813][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-02-03 15:14:00,813][rl4co.envs.common.base][INFO] - Loading test dataset from data/test.npz
+[2026-02-03 15:14:00,813][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-02-03 15:14:00,893][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 15:14:00,907][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 15:14:05,502][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-03 15:14:11,622][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 15:14:12,347][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 10.038, Baseline mean: 9.165
+[2026-02-03 15:14:12,347][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 15:14:12,347][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 15:14:12,347][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 15:14:12,347][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 15:14:13,095][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-02-03 15:14:13,095][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 15:14:23,597][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 15:14:24,330][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.545, Baseline mean: 10.141
+[2026-02-03 15:14:24,330][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 15:14:24,330][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 15:14:24,335][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 15:14:24,335][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 15:14:25,067][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 15:14:35,566][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 15:14:36,313][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 12.510, Baseline mean: 12.504
+[2026-02-03 15:14:36,313][rl4co.models.rl.reinforce.baselines][INFO] - p-value: 0.000
+[2026-02-03 15:14:36,313][rl4co.models.rl.reinforce.baselines][INFO] - Updating baseline
+[2026-02-03 15:14:36,320][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 15:14:36,320][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 15:14:37,253][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-02-03_15-14-00
+[2026-02-03 15:14:37,253][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-03 15:14:37,896][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
