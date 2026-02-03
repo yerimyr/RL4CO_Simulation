@@ -11,6 +11,8 @@ from rl4co.utils.pylogger import get_pylogger
 
 from .generator import DPPGenerator
 
+from .simulator import simulate_decap_reward
+
 log = get_pylogger(__name__)
 
 
@@ -47,6 +49,7 @@ class DPPEnv(RL4COEnvBase):
         self,
         generator: DPPGenerator = None,
         generator_params: dict = {},
+        sim_num_workers: int = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -63,6 +66,12 @@ class DPPEnv(RL4COEnvBase):
         self.data_dir = self.generator.data_dir
 
         self._make_spec(self.generator)
+        
+        self.sim_num_workers = sim_num_workers
+
+        self._sim_raw_pdn_cpu = self.raw_pdn.detach().cpu()
+        self._sim_decap_cpu = self.decap.detach().cpu()
+        self._sim_freq_cpu = self.freq.detach().cpu()
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"]
@@ -150,7 +159,23 @@ class DPPEnv(RL4COEnvBase):
             td = td.unsqueeze(0)
             actions = actions.unsqueeze(0)
         probes = td["probe"]
-        reward = torch.stack([self._decap_simulator(p, a) for p, a in zip(probes, actions)])
+        
+        if self.sim_num_workers and self.sim_num_workers > 1:
+            probes_cpu = probes.squeeze(-1).detach().cpu()
+            actions_cpu = actions.detach().cpu()
+            reward = simulate_decap_reward(
+                probes_cpu,
+                actions_cpu,
+                raw_pdn=self._sim_raw_pdn_cpu,
+                decap=self._sim_decap_cpu,
+                freq=self._sim_freq_cpu,
+                size=self.size,
+                num_freq=self.num_freq,
+                num_workers=self.sim_num_workers,
+            ).to(td.device)
+        else:
+            reward = torch.stack([self._decap_simulator(p, a) for p, a in zip(probes, actions)])
+
         return reward
 
     @staticmethod

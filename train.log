@@ -2347,3 +2347,118 @@ full_key: trainer
 [2026-01-27 10:50:39,386][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
 [2026-01-27 10:50:53,214][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\2026-01-27_10-50-38
 [2026-01-27 10:50:53,216][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-03 13:55:08,493][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-03 13:55:08,502][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-03 13:55:08,549][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.DPPEnv>
+[2026-02-03 13:55:09,506][rl4co.envs.eda.dpp.generator][INFO] - Downloading data...
+[2026-02-03 13:55:13,927][robust_downloader.downloader][INFO] - Downloading https://raw.githubusercontent.com/ai4co/devformer/main/data/data.zip to data.zip (21.6M)
+[2026-02-03 13:55:14,592][rl4co.envs.eda.dpp.generator][INFO] - Download complete. Unzipping...
+[2026-02-03 13:55:14,693][rl4co.envs.eda.dpp.generator][INFO] - Unzip complete. Removing zip file
+[2026-02-03 13:55:14,717][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-02-03 13:55:15,323][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-03 13:55:15,356][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-02-03 13:55:15,356][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-03 13:55:15,356][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>
+[2026-02-03 13:55:15,376][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-03 13:55:15,392][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-03 13:56:15,171][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-03 13:56:15,193][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-03 13:56:15,193][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-03 13:56:15,196][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp20_val_seed4321.npz
+[2026-02-03 13:56:15,204][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp50_val_seed4321.npz
+[2026-02-03 13:56:15,220][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp100_val_seed4321.npz
+[2026-02-03 13:56:15,225][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp20_val_seed4321.npz
+[2026-02-03 13:56:15,243][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp50_val_seed4321.npz
+[2026-02-03 13:56:15,266][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp100_val_seed4321.npz
+[2026-02-03 13:56:15,282][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp20_val_seed4321.npz
+[2026-02-03 13:56:15,305][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp50_val_seed4321.npz
+[2026-02-03 13:56:15,347][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp100_val_seed4321.npz
+[2026-02-03 13:56:15,362][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const20_val_seed4321.npz
+[2026-02-03 13:56:15,373][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const50_val_seed4321.npz
+[2026-02-03 13:56:15,391][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const100_val_seed4321.npz
+[2026-02-03 13:56:15,393][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif20_val_seed4321.npz
+[2026-02-03 13:56:15,416][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif50_val_seed4321.npz
+[2026-02-03 13:56:15,438][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif100_val_seed4321.npz
+[2026-02-03 13:56:15,454][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist20_val_seed4321.npz
+[2026-02-03 13:56:15,478][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist50_val_seed4321.npz
+[2026-02-03 13:56:15,518][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist100_val_seed4321.npz
+[2026-02-03 13:56:15,526][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp20_val_seed4321.npz
+[2026-02-03 13:56:15,533][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp50_val_seed4321.npz
+[2026-02-03 13:56:15,548][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp100_val_seed4321.npz
+[2026-02-03 13:56:15,893][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp20_val_seed4321.npz
+[2026-02-03 13:56:21,184][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp50_val_seed4321.npz
+[2026-02-03 13:56:57,344][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp100_val_seed4321.npz
+[2026-02-03 13:56:57,566][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp20_test_seed1234.npz
+[2026-02-03 13:56:57,579][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp50_test_seed1234.npz
+[2026-02-03 13:56:57,596][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp100_test_seed1234.npz
+[2026-02-03 13:56:57,599][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp20_test_seed1234.npz
+[2026-02-03 13:56:57,609][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp50_test_seed1234.npz
+[2026-02-03 13:56:57,643][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp100_test_seed1234.npz
+[2026-02-03 13:56:57,663][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp20_test_seed1234.npz
+[2026-02-03 13:56:57,672][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp50_test_seed1234.npz
+[2026-02-03 13:56:57,720][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp100_test_seed1234.npz
+[2026-02-03 13:56:57,735][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const20_test_seed1234.npz
+[2026-02-03 13:56:57,742][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const50_test_seed1234.npz
+[2026-02-03 13:56:57,766][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const100_test_seed1234.npz
+[2026-02-03 13:56:57,779][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif20_test_seed1234.npz
+[2026-02-03 13:56:57,782][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif50_test_seed1234.npz
+[2026-02-03 13:56:57,814][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif100_test_seed1234.npz
+[2026-02-03 13:56:57,831][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist20_test_seed1234.npz
+[2026-02-03 13:56:57,846][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist50_test_seed1234.npz
+[2026-02-03 13:56:57,893][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist100_test_seed1234.npz
+[2026-02-03 13:56:57,914][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp20_test_seed1234.npz
+[2026-02-03 13:56:57,921][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp50_test_seed1234.npz
+[2026-02-03 13:56:57,936][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp100_test_seed1234.npz
+[2026-02-03 13:56:58,267][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp20_test_seed1234.npz
+[2026-02-03 13:57:02,955][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp50_test_seed1234.npz
+[2026-02-03 13:57:38,627][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp100_test_seed1234.npz
+[2026-02-03 13:57:38,863][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-03 13:57:38,893][rl4co.envs.common.base][INFO] - Loading val dataset from data/test.npz
+[2026-02-03 13:57:38,893][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-02-03 13:57:38,895][rl4co.envs.common.base][INFO] - Loading test dataset from data/test.npz
+[2026-02-03 13:57:38,895][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-02-03 13:57:38,971][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 13:57:38,975][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 13:57:40,891][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-03 13:57:48,368][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 13:57:49,354][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 9.203, Baseline mean: 9.204
+[2026-02-03 13:57:49,354][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-02-03 13:57:49,354][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-03 13:57:57,987][rl4co.utils.utils][INFO] - Output dir: C:\RL4CO_Simulation\logs\train\runs\dpp\am-dpp\2026-02-03_13-55-08
+[2026-02-03 13:57:57,987][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-03 13:57:57,987][rl4co.utils.utils][INFO] - Closing wandb!
+[2026-02-03 14:23:06,302][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-03 14:23:06,302][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-03 14:23:06,335][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.DPPEnv>
+[2026-02-03 14:23:06,616][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.AttentionModel>
+[2026-02-03 14:23:06,683][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-03 14:23:06,692][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-03 14:23:06,692][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-03 14:23:06,692][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-03 14:23:06,692][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-03 14:23:06,692][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-03 14:23:06,699][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-02-03 14:23:06,699][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-03 14:23:06,699][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>
+[2026-02-03 14:23:06,699][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-03 14:23:06,720][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-03 14:23:12,382][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-03 14:23:12,422][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-03 14:23:12,423][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-03 14:23:12,427][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-03 14:23:12,434][rl4co.envs.common.base][INFO] - Loading val dataset from data/test.npz
+[2026-02-03 14:23:12,435][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset val_file to generate data automatically instead
+[2026-02-03 14:23:12,437][rl4co.envs.common.base][INFO] - Loading test dataset from data/test.npz
+[2026-02-03 14:23:12,437][rl4co.envs.common.base][ERROR] - Provided file name data/test.npz not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-02-03 14:23:12,513][rl4co.models.rl.reinforce.baselines][INFO] - Creating evaluation dataset for rollout baseline
+[2026-02-03 14:23:12,516][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating baseline policy on evaluation dataset
+[2026-02-03 14:23:17,270][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-03 14:23:22,358][rl4co.models.rl.reinforce.baselines][INFO] - Evaluating candidate policy on evaluation dataset
+[2026-02-03 14:23:23,071][rl4co.models.rl.reinforce.baselines][INFO] - Candidate mean: 9.203, Baseline mean: 9.204
+[2026-02-03 14:23:23,071][rl4co.models.rl.reinforce.baselines][INFO] - Set warmup alpha = 1.0
+[2026-02-03 14:23:23,071][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
