@@ -13,6 +13,8 @@ from .generator import DPPGenerator
 
 from .simulator import simulate_decap_reward
 
+import time
+
 log = get_pylogger(__name__)
 
 
@@ -72,6 +74,10 @@ class DPPEnv(RL4COEnvBase):
         self._sim_raw_pdn_cpu = self.raw_pdn.detach().cpu()
         self._sim_decap_cpu = self.decap.detach().cpu()
         self._sim_freq_cpu = self.freq.detach().cpu()
+        
+        self._last_reward_wall_ms = 0.0
+        self._last_action_cpu_ms = 0.0
+
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"]
@@ -150,20 +156,22 @@ class DPPEnv(RL4COEnvBase):
         self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
     def _get_reward(self, td, actions):
-        """
-        We call the reward function with the final sequence of actions to get the reward
-        Calling per-step would be very time consuming due to decap simulation
-        """
-        # We do the operation in a batch
         if len(td.batch_size) == 0:
             td = td.unsqueeze(0)
             actions = actions.unsqueeze(0)
         probes = td["probe"]
-        
+
+        # action -> CPU 변환 시간
+        t0 = time.perf_counter()
+        probes_cpu = probes.squeeze(-1).detach().cpu()
+        actions_cpu = actions.detach().cpu()
+        t1 = time.perf_counter()
+        self._last_action_cpu_ms = (t1 - t0) * 1000.0
+
         if self.sim_num_workers and self.sim_num_workers > 1:
-            probes_cpu = probes.squeeze(-1).detach().cpu()
-            actions_cpu = actions.detach().cpu()
-            reward = simulate_decap_reward(
+            # reward 계산 시간 (멀티프로세스 벽시계)
+            t2 = time.perf_counter()
+            reward, chunk_times = simulate_decap_reward(
                 probes_cpu,
                 actions_cpu,
                 raw_pdn=self._sim_raw_pdn_cpu,
@@ -172,9 +180,16 @@ class DPPEnv(RL4COEnvBase):
                 size=self.size,
                 num_freq=self.num_freq,
                 num_workers=self.sim_num_workers,
-            ).to(td.device)
+            )
+            t3 = time.perf_counter()
+            self._last_reward_wall_ms = (t3 - t2) * 1000.0
+            reward = reward.to(td.device)
         else:
+            # reward 계산 시간 (단일 프로세스)
+            t2 = time.perf_counter()
             reward = torch.stack([self._decap_simulator(p, a) for p, a in zip(probes, actions)])
+            t3 = time.perf_counter()
+            self._last_reward_wall_ms = (t3 - t2) * 1000.0
 
         return reward
 

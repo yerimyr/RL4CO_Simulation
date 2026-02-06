@@ -2,6 +2,8 @@ import multiprocessing as mp
 import os
 import torch
 
+import time
+
 _POOL = None
 _POOL_SIZE = None
 
@@ -77,6 +79,7 @@ def _worker_dpp(args):
         _worker_dpp._printed = True
 
     (probe_chunk, actions_chunk, raw_pdn, decap, freq, size, num_freq) = args
+    t0 = time.perf_counter()
     out = []
     for p, a in zip(probe_chunk, actions_chunk):
         out.append(
@@ -84,7 +87,8 @@ def _worker_dpp(args):
                 p.item(), a, raw_pdn, decap, freq, size, num_freq
             )
         )
-    return torch.stack(out, dim=0)
+    t1 = time.perf_counter()
+    return torch.stack(out, dim=0), (t1 - t0)
 
 
 def simulate_decap_reward(
@@ -105,6 +109,7 @@ def simulate_decap_reward(
     returns: [B] reward tensor on CPU
     """
     if num_workers is None or num_workers <= 1:
+        t0 = time.perf_counter()
         out = []
         for p, a in zip(probes, actions):
             out.append(
@@ -112,7 +117,8 @@ def simulate_decap_reward(
                     p.item(), a, raw_pdn, decap, freq, size, num_freq
                 )
             )
-        return torch.stack(out, dim=0)
+        t1 = time.perf_counter()
+        return torch.stack(out, dim=0), [t1 - t0]
 
     chunks = torch.chunk(probes, num_workers, dim=0)
     action_chunks = torch.chunk(actions, num_workers, dim=0)
@@ -123,4 +129,6 @@ def simulate_decap_reward(
         for p_chunk, a_chunk in zip(chunks, action_chunks)
     ]
     results = pool.map(_worker_dpp, tasks)
-    return torch.cat(results, dim=0)
+    rewards, chunk_times = zip(*results)
+    return torch.cat(rewards, dim=0), list(chunk_times)
+

@@ -59,24 +59,40 @@ class REINFORCE(RL4COLitModule):
                 log.warning("baseline_kwargs is ignored when baseline is not a string")
         self.baseline = baseline
         self.advantage_scaler = RewardScaler(reward_scale)
+        
+        self._timing_policy_ms = 0.0
+        self._timing_reward_ms = 0.0
+        self._timing_learn_ms = 0.0
+        self._train_wall_start = time.perf_counter()
+        
+        self._timing_reward_to_gpu_ms = 0.0
+        self._timing_action_cpu_ms = 0.0
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
 
-        # 1) policy(인코더-디코더) 시간
+        # 1) policy
         self._sync_if_cuda()
         t0 = time.perf_counter()
         out = self.policy(td, self.env, phase=phase, select_best=phase != "train", calc_reward=False)
         self._sync_if_cuda()
         t1 = time.perf_counter()
 
-        # 2) reward(시뮬레이터) 시간
+        # 2) reward (CPU sim)
         reward = self.env.get_reward(td, out["actions"])
+
+        # reward -> GPU 이동 시간
+        t_rg0 = time.perf_counter()
+        if reward.is_cuda is False and next(self.policy.parameters()).is_cuda:
+            reward = reward.to(next(self.policy.parameters()).device)
+        t_rg1 = time.perf_counter()
+        self._timing_reward_to_gpu_ms += (t_rg1 - t_rg0) * 1000.0
+
+        out["reward"] = reward
         self._sync_if_cuda()
         t2 = time.perf_counter()
-        out["reward"] = reward
 
-        # 3) loss 계산 시간
+        # 3) loss
         if phase == "train":
             out = self.calculate_loss(
                 td,
@@ -86,18 +102,11 @@ class REINFORCE(RL4COLitModule):
                 log_likelihood=out["log_likelihood"],
             )
             self._sync_if_cuda()
-            t3 = time.perf_counter()
-        else:
-            t3 = t2
 
-        # CSV 기록
-        self._append_timing_row(
-            phase=phase,
-            batch_idx=batch_idx,
-            t_policy_ms=(t1 - t0) * 1000.0,
-            t_reward_ms=(t2 - t1) * 1000.0,
-            t_loss_ms=(t3 - t2) * 1000.0,
-        )
+        # 누적
+        self._timing_policy_ms += (t1 - t0) * 1000.0
+        self._timing_reward_ms += getattr(self.env, "_last_reward_wall_ms", 0.0)
+        self._timing_action_cpu_ms += getattr(self.env, "_last_action_cpu_ms", 0.0)
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
@@ -109,25 +118,6 @@ class REINFORCE(RL4COLitModule):
     def _get_timing_csv_path(self):
         log_dir = getattr(self.trainer, "log_dir", None) or self.trainer.default_root_dir
         return Path(log_dir) / "timings.csv"
-
-    def _append_timing_row(
-        self,
-        phase: str,
-        batch_idx: int,
-        t_policy_ms: float,
-        t_reward_ms: float,
-        t_loss_ms: float,
-    ):
-        path = self._get_timing_csv_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        write_header = not path.exists()
-        with path.open("a", encoding="utf-8", newline="") as f:
-            if write_header:
-                f.write("global_step,epoch,batch_idx,phase,policy_ms,reward_ms,loss_ms\n")
-            f.write(
-                f"{self.global_step},{self.current_epoch},{batch_idx},{phase},"
-                f"{t_policy_ms:.6f},{t_reward_ms:.6f},{t_loss_ms:.6f}\n"
-            )
 
     def calculate_loss(
         self,
@@ -267,3 +257,38 @@ class REINFORCE(RL4COLitModule):
             loaded.baseline.load_state_dict(state_dict)
 
         return cast(Self, loaded)
+    
+    def on_train_start(self):
+        self._timing_policy_ms = 0.0
+        self._timing_reward_ms = 0.0
+        self._timing_learn_ms = 0.0
+        self._timing_reward_to_gpu_ms = 0.0
+        self._timing_action_cpu_ms = 0.0
+        self._train_wall_start = time.perf_counter()
+
+    def on_train_end(self):
+        total_wall_ms = (time.perf_counter() - self._train_wall_start) * 1000.0
+        sim_workers = getattr(self.env, "sim_num_workers", 0)
+
+        path = self._get_timing_csv_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not path.exists()
+        with path.open("a", encoding="utf-8", newline="") as f:
+            if write_header:
+                f.write("sim_workers,policy_ms_sum,reward_ms_sum,learn_ms_sum,action_cpu_ms_sum,reward_to_gpu_ms_sum,wall_ms_total\n")
+            f.write(
+                f"{sim_workers},{self._timing_policy_ms:.6f},"
+                f"{self._timing_reward_ms:.6f},{self._timing_learn_ms:.6f},"
+                f"{self._timing_action_cpu_ms:.6f},{self._timing_reward_to_gpu_ms:.6f},"
+                f"{total_wall_ms:.6f}\n"
+            )
+
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure=None):
+        t0 = time.perf_counter()
+        if optimizer_closure is not None:
+            # closure 안에 loss + backward 포함됨
+            optimizer.step(closure=optimizer_closure)
+        else:
+            optimizer.step()
+        t1 = time.perf_counter()
+        self._timing_learn_ms += (t1 - t0) * 1000.0
