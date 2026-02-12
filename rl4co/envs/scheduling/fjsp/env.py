@@ -82,7 +82,6 @@ class FJSPEnv(EnvBase):
         self.check_mask = check_mask
         self.stepwise_reward = stepwise_reward
         self._make_spec(self.generator)
-
     @property
     def num_mas(self):
         return self._num_mas

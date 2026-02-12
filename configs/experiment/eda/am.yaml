@@ -25,6 +25,6 @@ model:
     weight_decay: 1e-3
 
 trainer:
-  max_epochs: 3  #100
+  max_epochs: 5  #100
 
 seed: 1234

@@ -77,7 +77,8 @@ class DPPEnv(RL4COEnvBase):
         
         self._last_reward_wall_ms = 0.0
         self._last_action_cpu_ms = 0.0
-
+        
+        self._last_chunk_times_ms = []
 
     def _step(self, td: TensorDict) -> TensorDict:
         current_node = td["action"]
@@ -181,6 +182,7 @@ class DPPEnv(RL4COEnvBase):
                 num_freq=self.num_freq,
                 num_workers=self.sim_num_workers,
             )
+            self._last_chunk_times_ms = [t * 1000.0 for t in chunk_times]
             t3 = time.perf_counter()
             self._last_reward_wall_ms = (t3 - t2) * 1000.0
             reward = reward.to(td.device)
@@ -190,6 +192,7 @@ class DPPEnv(RL4COEnvBase):
             reward = torch.stack([self._decap_simulator(p, a) for p, a in zip(probes, actions)])
             t3 = time.perf_counter()
             self._last_reward_wall_ms = (t3 - t2) * 1000.0
+            self._last_chunk_times_ms = [self._last_reward_wall_ms]
 
         return reward
 

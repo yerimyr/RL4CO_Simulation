@@ -67,6 +67,8 @@ class REINFORCE(RL4COLitModule):
         
         self._timing_reward_to_gpu_ms = 0.0
         self._timing_action_cpu_ms = 0.0
+        
+        self._timing_reward_worker_ms = []
 
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         td = self.env.reset(batch)
@@ -107,6 +109,12 @@ class REINFORCE(RL4COLitModule):
         self._timing_policy_ms += (t1 - t0) * 1000.0
         self._timing_reward_ms += getattr(self.env, "_last_reward_wall_ms", 0.0)
         self._timing_action_cpu_ms += getattr(self.env, "_last_action_cpu_ms", 0.0)
+        
+        chunk_ms = getattr(self.env, "_last_chunk_times_ms", [])
+        if len(self._timing_reward_worker_ms) < len(chunk_ms):
+            self._timing_reward_worker_ms.extend([0.0] * (len(chunk_ms) - len(self._timing_reward_worker_ms)))
+        for i, v in enumerate(chunk_ms):
+            self._timing_reward_worker_ms[i] += float(v)
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
@@ -264,6 +272,7 @@ class REINFORCE(RL4COLitModule):
         self._timing_learn_ms = 0.0
         self._timing_reward_to_gpu_ms = 0.0
         self._timing_action_cpu_ms = 0.0
+        self._timing_reward_worker_ms = []
         self._train_wall_start = time.perf_counter()
 
     def on_train_end(self):
@@ -273,14 +282,19 @@ class REINFORCE(RL4COLitModule):
         path = self._get_timing_csv_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         write_header = not path.exists()
+        worker_ms_str = ";".join(f"{v:.6f}" for v in self._timing_reward_worker_ms)
+
         with path.open("a", encoding="utf-8", newline="") as f:
             if write_header:
-                f.write("sim_workers,policy_ms_sum,reward_ms_sum,learn_ms_sum,action_cpu_ms_sum,reward_to_gpu_ms_sum,wall_ms_total\n")
+                f.write(
+                    "sim_workers,policy_ms_sum,reward_ms_sum,learn_ms_sum,"
+                    "action_cpu_ms_sum,reward_to_gpu_ms_sum,reward_worker_ms_sum_by_idx,wall_ms_total\n"
+                )
             f.write(
                 f"{sim_workers},{self._timing_policy_ms:.6f},"
                 f"{self._timing_reward_ms:.6f},{self._timing_learn_ms:.6f},"
                 f"{self._timing_action_cpu_ms:.6f},{self._timing_reward_to_gpu_ms:.6f},"
-                f"{total_wall_ms:.6f}\n"
+                f"\"{worker_ms_str}\",{total_wall_ms:.6f}\n"
             )
 
     def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure=None):
