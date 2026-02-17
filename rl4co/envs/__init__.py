@@ -32,6 +32,9 @@ from rl4co.envs.routing import (
 # Scheduling
 from rl4co.envs.scheduling import FFSPEnv, FJSPEnv, JSSPEnv, SMTWTPEnv
 
+# Part Consolidation
+from rl4co.envs.pc.env import PartConsolidationEnv
+
 # Register environments
 ENV_REGISTRY = {
     "atsp": ATSPEnv,
@@ -59,6 +62,7 @@ ENV_REGISTRY = {
     "tsp_kopt": TSPkoptEnv,
     "mcp": MCPEnv,
     "flp": FLPEnv,
+    "pc": PartConsolidationEnv,
 }
 
 
