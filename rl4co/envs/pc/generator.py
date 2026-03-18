@@ -7,131 +7,185 @@ from tensordict import TensorDict
 
 
 @dataclass
-class PCGeneratorParams:
-    num_parts: int = 4
-    # random graph density for extra edges beyond a spanning tree
-    extra_edge_prob: float = 0.35
-    # node feature ranges
-    material_types: int = 3  # {0,1,2}
-    size_low: float = 0.1
-    size_high: float = 1.0
-    motion_types: int = 2  # {0,1}
-    # build size constraint for reward (not a hard mask)
-    build_limit: float = 1.6
+class FPIGeneratorParams:
+    # number of real parts (excluding SEP)
+    num_parts: int = 13
+
+    # node attribute ranges
+    material_types: int = 3
+    L_low: float = 5.0
+    L_high: float = 220.0
+    W_low: float = 5.0
+    W_high: float = 80.0
+    H_low: float = 0.5
+    H_high: float = 30.0
+
+    # node attribute probabilities
+    p_maint_H: float = 0.10
+    p_standard: float = 0.08
+
+    # interaction graph density
+    p_edge: float = 0.35
+
+    # edge attribute probability
+    p_relative_motion: float = 0.15
+
+    # build limits for feasibility
+    build_limit_L: float = 250.0
+    build_limit_W: float = 120.0
+    build_limit_H: float = 80.0
 
 
-class PCGenerator:
-    """Random instance generator for the Part Consolidation (PC) prototype.
+class FPIGenerator:
+    """
+    FPI network generator.
 
-    Outputs a TensorDict with:
-      - node_features: [B, N+1, F] (includes node 0 = SEP)
-      - compat:        [B, N+1, N+1] (bool, includes SEP fully compatible)
-      - material:      [B, N+1] (long, SEP=-1)
-      - size:          [B, N+1] (float, SEP=0)
-      - motion:        [B, N+1] (long, SEP=-1)
-
-    Notes
-    -----
-    * compat is generated as an undirected connected random graph over the N parts.
-      We then embed it into an (N+1)x(N+1) matrix and make SEP compatible with all.
-    * node_features uses: material one-hot (3), size (1), motion (1) => F=5.
+    Important design:
+    1) FPI network = interaction graph (policy input)
+    2) compat = feasibility constraint base (action mask basis)
+    3) W is NOT filtered by compat
+    4) group-level build feasibility is checked in env.get_action_mask()
     """
 
     def __init__(self, **kwargs):
-        params = PCGeneratorParams(**kwargs)
-        self.params = params
-
-        self.num_parts = params.num_parts
+        self.p = FPIGeneratorParams(**kwargs)
+        self.num_parts = self.p.num_parts
         self.num_nodes = self.num_parts + 1  # + SEP
-        self.build_limit = params.build_limit
+        self.node_feat_dim = self.p.material_types + 3 + 1 + 1
+        self.edge_feat_dim = 1 + 3 + 1 + 1  # mat_var + stack_size(3) + maint_diff + rel_motion
 
-        self.material_types = params.material_types
-        self.motion_types = params.motion_types
-        self.size_low = params.size_low
-        self.size_high = params.size_high
-        self.extra_edge_prob = params.extra_edge_prob
+        self.build_limit = torch.tensor(
+            [self.p.build_limit_L, self.p.build_limit_W, self.p.build_limit_H],
+            dtype=torch.float32,
+        )
 
-        # feature dim: one-hot material (3) + size (1) + motion (1)
-        self.node_feat_dim = self.material_types + 1 + 1
-
-    def _random_connected_undirected_graph(self, n: int, batch_size, device):
-        """Return adjacency matrix [B,n,n] for a connected undirected random graph."""
-        B = batch_size[0] if isinstance(batch_size, (list, tuple, torch.Size)) else batch_size
-        adj = torch.zeros((B, n, n), dtype=torch.bool, device=device)
-
-        # build a random spanning tree per batch to ensure connectivity
-        for b in range(B):
-            # random permutation of nodes
-            perm = torch.randperm(n, device=device)
-            # connect each new node to one of the previous nodes
-            for i in range(1, n):
-                u = perm[i].item()
-                v = perm[torch.randint(0, i, (1,), device=device).item()].item()
-                adj[b, u, v] = True
-                adj[b, v, u] = True
-            # add extra edges
-            rand_mat = torch.rand((n, n), device=device)
-            extra = (rand_mat < self.extra_edge_prob) & (~torch.eye(n, dtype=torch.bool, device=device))
-            # keep upper triangle, then mirror
-            extra = torch.triu(extra, diagonal=1)
-            adj[b] |= extra
-            adj[b] |= extra.transpose(0, 1)
-
-        # diagonal doesn't matter (we'll handle in compat)
-        return adj
-
-    def __call__(self, batch_size, device: str | torch.device | None = None) -> TensorDict:
-        if device is None:
-            device = torch.device("cpu")
-        else:
-            device = torch.device(device)
-
-        batch_size = [batch_size] if isinstance(batch_size, int) else list(batch_size)
-        B = batch_size[0]
+    def __call__(self, batch_size: int, device: torch.device | str = "cpu") -> TensorDict:
+        device = torch.device(device)
+        B = batch_size
         N = self.num_parts
+        eye = torch.eye(N, dtype=torch.bool, device=device).unsqueeze(0)
 
-        # --- raw part attributes (exclude SEP) ---
-        material = torch.randint(0, self.material_types, (B, N), device=device)
-        motion = torch.randint(0, self.motion_types, (B, N), device=device)
-        size = torch.rand((B, N), device=device) * (self.size_high - self.size_low) + self.size_low
+        # 1) node attributes
+        material = torch.randint(0, self.p.material_types, (B, N), device=device)
 
-        # --- compat graph over parts ---
-        adj = self._random_connected_undirected_graph(N, batch_size, device=device)
+        L = torch.rand((B, N), device=device) * (self.p.L_high - self.p.L_low) + self.p.L_low
+        Wd = torch.rand((B, N), device=device) * (self.p.W_high - self.p.W_low) + self.p.W_low
+        H = torch.rand((B, N), device=device) * (self.p.H_high - self.p.H_low) + self.p.H_low
+        size = torch.stack([L, Wd, H], dim=-1).float()
 
-        # compat for parts: allow grouping only if there is an edge between i and j
-        # (hard spatial constraint). Self-compat is True.
-        compat_parts = adj.clone()
-        compat_parts |= torch.eye(N, dtype=torch.bool, device=device).unsqueeze(0)
+        maintfreq = (torch.rand((B, N), device=device) < self.p.p_maint_H).long()
+        isstandard = (torch.rand((B, N), device=device) < self.p.p_standard).long()
 
-        # embed into (N+1)x(N+1) with SEP as node 0, fully compatible with all
+        # 2) interaction graph W
+        edge_exist = (torch.rand((B, N, N), device=device) < self.p.p_edge)
+        edge_exist = torch.triu(edge_exist, diagonal=1)
+        edge_exist = edge_exist | edge_exist.transpose(-1, -2)
+        edge_exist = edge_exist & (~eye)
+
+        raw_w = 0.5 + 0.5 * torch.rand((B, N, N), device=device)
+        W_parts = edge_exist.float() * raw_w
+        W_parts = 0.5 * (W_parts + W_parts.transpose(-1, -2))
+        W_parts = W_parts * (~eye).float()
+
+        # 3) edge attributes
+        mat_var = (material.unsqueeze(-1) != material.unsqueeze(-2)).long()
+        stack_size = size.unsqueeze(-2) + size.unsqueeze(-3)
+        maint_diff = (maintfreq.unsqueeze(-1) != maintfreq.unsqueeze(-2)).long()
+
+        rel = (torch.rand((B, N, N), device=device) < self.p.p_relative_motion)
+        rel = torch.triu(rel, diagonal=1)
+        rel = rel | rel.transpose(-1, -2)
+        rel = rel & (~eye)
+        rel_motion = rel.long()
+
+        build = self.build_limit.to(device).view(1, 1, 1, 3)
+        stack_ok = (stack_size <= build).all(dim=-1)
+
+        # 4) feasibility matrix (pairwise compatibility base)
+        compat_parts = (
+            (mat_var == 0)
+            & (maint_diff == 0)
+            & (rel_motion == 0)
+            & stack_ok
+        )
+
+        # standard part cannot be merged with others
+        standard_pair_block = isstandard.unsqueeze(-1) | isstandard.unsqueeze(-2)
+        compat_parts = compat_parts & (~standard_pair_block)
+        compat_parts = compat_parts | eye
+
+        # 5) node features
+        mat_oh = torch.nn.functional.one_hot(material, num_classes=self.p.material_types).float()
+        part_node_features = torch.cat(
+            [
+                mat_oh,
+                size.float(),
+                maintfreq.float().unsqueeze(-1),
+                isstandard.float().unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+
+        # 6) edge features = raw stack_size
+        part_edge_features = torch.cat(
+            [
+                mat_var.float().unsqueeze(-1),
+                stack_size.float(),
+                maint_diff.float().unsqueeze(-1),
+                rel_motion.float().unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+
+        # 7) pad SEP node (index 0)
+        material_all = torch.full((B, N + 1), -1, dtype=torch.long, device=device)
+        maint_all = torch.full((B, N + 1), -1, dtype=torch.long, device=device)
+        std_all = torch.full((B, N + 1), -1, dtype=torch.long, device=device)
+        size_all = torch.zeros((B, N + 1, 3), dtype=torch.float32, device=device)
+
+        material_all[:, 1:] = material
+        maint_all[:, 1:] = maintfreq
+        std_all[:, 1:] = isstandard
+        size_all[:, 1:] = size
+
+        node_features = torch.zeros((B, N + 1, self.node_feat_dim), dtype=torch.float32, device=device)
+        node_features[:, 1:, :] = part_node_features
+
+        W = torch.zeros((B, N + 1, N + 1), dtype=torch.float32, device=device)
+        W[:, 1:, 1:] = W_parts
+
+        mat_var_all = torch.zeros((B, N + 1, N + 1), dtype=torch.float32, device=device)
+        maint_diff_all = torch.zeros((B, N + 1, N + 1), dtype=torch.float32, device=device)
+        rel_motion_all = torch.zeros((B, N + 1, N + 1), dtype=torch.float32, device=device)
+        stack_all = torch.zeros((B, N + 1, N + 1, 3), dtype=torch.float32, device=device)
+        edge_features = torch.zeros((B, N + 1, N + 1, self.edge_feat_dim), dtype=torch.float32, device=device)
+
+        mat_var_all[:, 1:, 1:] = mat_var.float()
+        maint_diff_all[:, 1:, 1:] = maint_diff.float()
+        rel_motion_all[:, 1:, 1:] = rel_motion.float()
+        stack_all[:, 1:, 1:, :] = stack_size
+        edge_features[:, 1:, 1:, :] = part_edge_features
+
         compat = torch.ones((B, N + 1, N + 1), dtype=torch.bool, device=device)
         compat[:, 1:, 1:] = compat_parts
 
-        # --- node_features (include SEP) ---
-        # one-hot material (3)
-        mat_oh = torch.nn.functional.one_hot(material, num_classes=self.material_types).float()  # [B,N,3]
-        mot = motion.float().unsqueeze(-1)  # [B,N,1]
-        siz = size.float().unsqueeze(-1)    # [B,N,1]
-        part_feats = torch.cat([mat_oh, siz, mot], dim=-1)  # [B,N,5]
-        sep_feats = torch.zeros((B, 1, self.node_feat_dim), device=device)
-        node_features = torch.cat([sep_feats, part_feats], dim=1)  # [B,N+1,5]
-
-        # --- also provide attributes aligned with node indices (SEP padded) ---
-        material_all = torch.full((B, N + 1), -1, dtype=torch.long, device=device)
-        motion_all = torch.full((B, N + 1), -1, dtype=torch.long, device=device)
-        size_all = torch.zeros((B, N + 1), dtype=torch.float32, device=device)
-        material_all[:, 1:] = material
-        motion_all[:, 1:] = motion
-        size_all[:, 1:] = size
+        build_limit = self.build_limit.to(device).unsqueeze(0).repeat(B, 1)
 
         return TensorDict(
             {
                 "node_features": node_features,
-                "compat": compat,
+                "edge_features": edge_features,
                 "material": material_all,
-                "motion": motion_all,
                 "size": size_all,
-                "build_limit": torch.full((B, 1), self.build_limit, dtype=torch.float32, device=device),
+                "maintfreq": maint_all,
+                "isstandard": std_all,
+                "W": W,
+                "mat_var": mat_var_all,
+                "stack_size": stack_all,
+                "maint_diff": maint_diff_all,
+                "rel_motion": rel_motion_all,
+                "compat": compat,
+                "build_limit": build_limit,
             },
-            batch_size=batch_size,
+            batch_size=[B],
         )

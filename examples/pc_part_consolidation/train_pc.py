@@ -1,115 +1,143 @@
-"""
-Train a prototype Part Consolidation policy with RL4CO's AttentionModel (REINFORCE).
-"""
-
 from __future__ import annotations
 
 import os
-import random
-from dataclasses import asdict
+
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
+import torch.optim as optim
 
-from rl4co.envs.pc import PartConsolidationEnv
-from rl4co.envs.pc.generator import PCGeneratorParams
-from rl4co.models.zoo.am import AttentionModel
-from rl4co.models.zoo.pc import make_pc_policy
+from rl4co.envs.pc.env import PartConsolidationEnv
+from rl4co.envs.pc.generator import FPIGenerator
+from rl4co.models.zoo.pc.policy import PCPolicy
 
 
-def set_seed(seed: int = 1234):
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+def rollout_episode_from_td(
+    env: PartConsolidationEnv,
+    policy: PCPolicy,
+    td_init,
+    max_steps: int,
+    sample: bool = True,
+):
+    td = td_init.clone().to(env.device)
+
+    actions = []
+    logps = []
+
+    for _ in range(max_steps):
+        action, logp, _ = policy.act(td, sample=sample)
+        actions.append(action)
+        logps.append(logp)
+
+        td = env.step(td, action)
+        if td["done"].all():
+            break
+
+    actions = torch.stack(actions, dim=1)
+    logps = torch.stack(logps, dim=1)
+    reward = env.reward_from_actions(td["W"], actions)
+    return actions, logps, reward, td
 
 
 def main():
-    set_seed(1234)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("Device:", device)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size = 128
+    max_steps = 40
+    epochs = 2000
+    lr = 3e-4
 
-    # ---------------- TensorBoard ----------------
-    writer = SummaryWriter(log_dir="runs/pc_experiment")
+    reward_a = 1.0
+    reward_b = 0.2
 
-    # ---------- Problem / generator ----------
-    gen_params = PCGeneratorParams(
-        num_parts=4,
-        extra_edge_prob=0.35,
-        build_limit=1.6,
-        size_low=0.1,
-        size_high=1.0,
-        material_types=3,
-        motion_types=2,
+    generator_params = dict(
+        num_parts=13,
+        p_relative_motion=0.15,
+        p_edge=0.35,
+        L_low=5.0,
+        L_high=220.0,
+        W_low=5.0,
+        W_high=80.0,
+        H_low=0.5,
+        H_high=30.0,
+        build_limit_L=250.0,
+        build_limit_W=120.0,
+        build_limit_H=80.0,
+        p_maint_H=0.10,
+        p_standard=0.08,
     )
 
-    env = PartConsolidationEnv(generator_params=asdict(gen_params)).to(device)
-
-    # ---------- Model ----------
-    policy = make_pc_policy(
-        node_feat_dim=env.generator.node_feat_dim,
-        embed_dim=128,
-        num_encoder_layers=3,
+    gen = FPIGenerator(**generator_params)
+    env = PartConsolidationEnv(
+        generator=gen,
+        reward_a=reward_a,
+        reward_b=reward_b,
+        device=device,
     )
 
-    model = AttentionModel(env, policy=policy, baseline="rollout").to(device)
+    policy = PCPolicy(
+        node_feat_dim=gen.node_feat_dim,
+        edge_feat_dim=gen.edge_feat_dim,
+        emb_dim=128,
+        num_message_passing=3,
+    ).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+    optimizer = optim.Adam(policy.parameters(), lr=lr)
 
-    # ---------- Train loop ----------
-    EPOCHS = 100000
-    BATCH_SIZE = 20
-    PRINT_EVERY = 100
+    for ep in range(1, epochs + 1):
+        policy.train()
 
-    model.train()
+        # same initial batch for stochastic rollout and greedy baseline
+        td0 = env.reset(batch_size).to(device)
 
-    for epoch in range(1, EPOCHS + 1):
+        actions, logps, reward, _ = rollout_episode_from_td(
+            env=env,
+            policy=policy,
+            td_init=td0,
+            max_steps=max_steps,
+            sample=True,
+        )
 
-        td = env.reset(batch_size=BATCH_SIZE).to(device)
-        out = model(td, decode_type="sampling")
+        policy.eval()
+        with torch.no_grad():
+            _, _, reward_greedy, _ = rollout_episode_from_td(
+                env=env,
+                policy=policy,
+                td_init=td0,
+                max_steps=max_steps,
+                sample=False,
+            )
+        policy.train()
 
-        reward = out["reward"]
-        log_likelihood = out["log_likelihood"]
+        advantage = reward - reward_greedy
+        logp_sum = logps.sum(dim=1)
+        loss = -(advantage.detach() * logp_sum).mean()
 
-        loss = -(reward.detach() * log_likelihood).mean()
-
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
         optimizer.step()
 
-        # -------- TensorBoard Logging --------
-        writer.add_scalar("Train/Loss", loss.item(), epoch)
-        writer.add_scalar("Train/Reward_sampled", reward.mean().item(), epoch)
-
-        if epoch % PRINT_EVERY == 0:
+        if ep % 10 == 0:
+            policy.eval()
             with torch.no_grad():
-                td_val = env.reset(batch_size=256).to(device)
-                out_greedy = model(td_val, decode_type="greedy")
-                avg_reward = out_greedy["reward"].mean().item()
+                td_eval = env.reset(batch_size=256).to(device)
+                _, _, reward_eval, _ = rollout_episode_from_td(
+                    env=env,
+                    policy=policy,
+                    td_init=td_eval,
+                    max_steps=max_steps,
+                    sample=False,
+                )
 
             print(
-                f"Epoch {epoch:05d} | "
-                f"loss={loss.item():.4f} | "
-                f"greedy avg reward={avg_reward:.4f}"
+                f"[{ep:5d}] "
+                f"train_reward={reward.mean().item():.4f} "
+                f"greedy_baseline={reward_greedy.mean().item():.4f} "
+                f"eval_reward={reward_eval.mean().item():.4f} "
+                f"loss={loss.item():.4f}"
             )
-
-            writer.add_scalar("Validation/Reward_greedy", avg_reward, epoch)
-
-    writer.close()
-
-    # ---------- Demo ----------
-    model.eval()
-    td = env.reset(batch_size=1).to(device)
-    out = model(td, decode_type="greedy")
-    actions = out["actions"].squeeze(0).tolist()
-
-    print("\n=== Demo (greedy) ===")
-    print("material:", td["material"].squeeze(0).tolist())
-    print("motion  :", td["motion"].squeeze(0).tolist())
-    print("size    :", [round(x, 3) for x in td["size"].squeeze(0).tolist()])
-    print("compat  :\n", td["compat"].squeeze(0).int().cpu().numpy())
-    print("actions :", actions)
-    print("reward  :", out["reward"].item())
 
 
 if __name__ == "__main__":
