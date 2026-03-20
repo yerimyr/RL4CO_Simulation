@@ -118,7 +118,7 @@ def print_instance(td):
 
 
 def debug_one_instance():
-    gen = FPIGenerator(num_parts=4)
+    gen = FPIGenerator(num_parts=20)
     td = gen(batch_size=1)
     print_instance(td)
 

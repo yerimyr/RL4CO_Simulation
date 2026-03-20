@@ -90,13 +90,13 @@ def main():
     # =========================
     generator_params = dict(
         num_parts=4,
-        material_types=4,
+        material_types=3,
         p_relative_motion=0.15,
         p_extra_edge=0.30,
         L_low=5.0,
-        L_high=220.0,
+        L_high=160.0,
         W_low=5.0,
-        W_high=80.0,
+        W_high=70.0,
         H_low=0.5,
         H_high=30.0,
         build_limit_L=260.0,

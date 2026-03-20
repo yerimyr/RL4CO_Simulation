@@ -9,14 +9,14 @@ from tensordict import TensorDict
 @dataclass
 class FPIGeneratorParams:
     # number of real parts (excluding SEP)
-    num_parts: int = 8
+    num_parts: int = 4
 
     # node attribute ranges
-    material_types: int = 4
+    material_types: int = 3
     L_low: float = 5.0
-    L_high: float = 220.0
+    L_high: float = 160.0
     W_low: float = 5.0
-    W_high: float = 80.0
+    W_high: float = 70.0
     H_low: float = 0.5
     H_high: float = 30.0
 
@@ -230,7 +230,7 @@ class FPIGenerator:
             - gamma * rel_motion.float()
         )
 
-        score = torch.clamp(score, 0.0, 1.0)
+        score = torch.clamp(score, 0.1, 1.0)
 
         # adjacency=1인 경우만 weight 부여
         W_parts = adj_parts.float() * score
