@@ -187,7 +187,7 @@ class PartConsolidationEnv:
     def reward_from_actions(self, actions: torch.Tensor) -> torch.Tensor:
         groups = self.actions_to_groups(actions, N=self.N)
         K = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=actions.device)
-        return -K * 10.0
+        return -K 
 
     @staticmethod
     def actions_to_groups(actions: torch.Tensor, N: int) -> list[list[list[int]]]:
