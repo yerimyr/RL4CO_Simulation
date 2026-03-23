@@ -6,6 +6,35 @@ from tensordict import TensorDict
 from rl4co.envs.pc.generator import FPIGenerator
 
 
+class RunningZScore:
+    def __init__(self, eps: float = 1e-6):
+        self.mean = 0.0
+        self.var = 1.0
+        self.count = 0
+        self.eps = eps
+
+    def normalize(self, value: torch.Tensor) -> torch.Tensor:
+        if self.count < 2:
+            return value
+        std = max(self.var, self.eps) ** 0.5
+        return (value - self.mean) / std
+
+    def update(self, value: torch.Tensor) -> None:
+        val = float(value.detach().mean().item())
+        self.count += 1
+        if self.count == 1:
+            self.mean = val
+            self.var = 1.0
+            return
+        delta = val - self.mean
+        self.mean += delta / self.count
+        delta2 = val - self.mean
+        # Welford-style running variance accumulator normalized by count.
+        prev_m2 = self.var * max(self.count - 2, 1)
+        m2 = prev_m2 + delta * delta2
+        self.var = m2 / max(self.count - 1, 1)
+
+
 class PartConsolidationEnv:
     """
     General-graph Part Consolidation environment.
@@ -31,6 +60,27 @@ class PartConsolidationEnv:
 
         self.N = self.generator.num_nodes
         self.F = self.generator.node_feat_dim
+        self._reward_static_td: TensorDict | None = None
+        self._step_reward_stats = {
+            "strength": RunningZScore(),
+            "sep": RunningZScore(),
+            "fallback": RunningZScore(),
+        }
+        self._terminal_reward_stats = {
+            "infeasible_solution": RunningZScore(),
+            "num_groups": RunningZScore(),
+            "total_internal_strength": RunningZScore(),
+        }
+        self._step_reward_weights = {
+            "strength": 0.5,
+            "sep": -0.2,
+            "fallback": -2.0,
+        }
+        self._terminal_reward_weights = {
+            "infeasible_solution": -3.0,
+            "num_groups": -1.5,
+            "total_internal_strength": 1.0,
+        }
 
     def reset(self, batch_size: int) -> TensorDict:
         td = self.generator(batch_size=batch_size, device=self.device)
@@ -59,6 +109,7 @@ class PartConsolidationEnv:
         )
 
         td_out["action_mask"] = self.get_action_mask(td_out)
+        self._reward_static_td = td_out.clone()
         return td_out
 
     def get_action_mask(self, td: TensorDict) -> torch.Tensor:
@@ -144,10 +195,12 @@ class PartConsolidationEnv:
         closed_group_count = td["closed_group_count"].clone()
         size = td["size"]
 
-        step_reward = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
-
         is_sep = action.eq(0)
         is_part = ~is_sep
+        step_reward = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
+        strength_gain = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
+        sep_used = is_sep.float()
+        fallback_used = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
 
         # SEP
         if is_sep.any():
@@ -161,9 +214,19 @@ class PartConsolidationEnv:
         if is_part.any():
             rows = torch.where(is_part)[0]
             idx = action[is_part]
+            fallback_used[rows] = td["fallback_part_mask"][rows, idx].float()
+            strength_gain[rows] = (
+                td["W"][rows, idx, :] * open_group[rows].float()
+            ).sum(dim=-1)
             assigned[rows, idx] = True
             open_group[rows, idx] = True
             open_group_size[rows] += size[rows, idx, :]
+
+        step_reward = self._compose_step_reward(
+            strength_gain=strength_gain,
+            sep_used=sep_used,
+            fallback_used=fallback_used,
+        )
 
         all_assigned = assigned[:, 1:].all(dim=-1)
         open_empty = ~open_group.any(dim=-1)
@@ -186,8 +249,13 @@ class PartConsolidationEnv:
 
     def reward_from_actions(self, actions: torch.Tensor) -> torch.Tensor:
         groups = self.actions_to_groups(actions, N=self.N)
-        K = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=actions.device)
-        return -K 
+        raw = self._terminal_reward_components(groups, device=actions.device)
+        reward = torch.zeros_like(raw["num_groups"])
+        for name, values in raw.items():
+            reward = reward + self._terminal_reward_weights[name] * self._terminal_reward_stats[name].normalize(values)
+        for name, values in raw.items():
+            self._terminal_reward_stats[name].update(values)
+        return reward
 
     @staticmethod
     def actions_to_groups(actions: torch.Tensor, N: int) -> list[list[list[int]]]:
@@ -215,3 +283,86 @@ class PartConsolidationEnv:
             out.append(groups_b)
 
         return out
+
+    def _compose_step_reward(
+        self,
+        strength_gain: torch.Tensor,
+        sep_used: torch.Tensor,
+        fallback_used: torch.Tensor,
+    ) -> torch.Tensor:
+        reward = torch.zeros_like(strength_gain)
+        raw = {
+            "strength": strength_gain,
+            "sep": sep_used,
+            "fallback": fallback_used,
+        }
+        for name, values in raw.items():
+            reward = reward + self._step_reward_weights[name] * self._step_reward_stats[name].normalize(values)
+        for name, values in raw.items():
+            self._step_reward_stats[name].update(values)
+        return reward
+
+    def _terminal_reward_components(self, groups: list[list[list[int]]], device: torch.device) -> dict[str, torch.Tensor]:
+        if self._reward_static_td is None:
+            raise RuntimeError("reward_from_actions called before env.reset")
+
+        td = self._reward_static_td
+        B = len(groups)
+        infeasible_solution = torch.zeros((B,), dtype=torch.float32, device=device)
+        num_groups = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=device)
+        total_internal_strength = torch.zeros((B,), dtype=torch.float32, device=device)
+
+        compat = td["compat"]
+        size = td["size"]
+        build_limit = td["build_limit"]
+        isstandard = td["isstandard"]
+
+        for b, groups_b in enumerate(groups):
+            infeasible = False
+            for group in groups_b:
+                total_internal_strength[b] += self._group_internal_strength(group, td["W"][b])
+                if not self._group_feasible(group, compat[b], size[b], build_limit[b], isstandard[b], td["assembly_adj"][b]):
+                    infeasible = True
+            infeasible_solution[b] = float(infeasible)
+
+        return {
+            "infeasible_solution": infeasible_solution,
+            "num_groups": num_groups,
+            "total_internal_strength": total_internal_strength,
+        }
+
+    def _group_internal_strength(self, group: list[int], w: torch.Tensor) -> torch.Tensor:
+        total = torch.tensor(0.0, device=w.device)
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                total = total + w[group[i], group[j]]
+        return total
+
+    def _group_feasible(
+        self,
+        group: list[int],
+        compat: torch.Tensor,
+        size: torch.Tensor,
+        build_limit: torch.Tensor,
+        isstandard: torch.Tensor,
+        assembly_adj: torch.Tensor,
+    ) -> bool:
+        if not group:
+            return True
+        if isstandard[group].bool().any():
+            return False
+        if not torch.all(size[group].sum(dim=0) <= build_limit):
+            return False
+        for i in group:
+            for j in group:
+                if not bool(compat[i, j].item()):
+                    return False
+        visited = {group[0]}
+        stack = [group[0]]
+        while stack:
+            cur = stack.pop()
+            for nxt in group:
+                if bool(assembly_adj[cur, nxt].item()) and nxt not in visited:
+                    visited.add(nxt)
+                    stack.append(nxt)
+        return len(visited) == len(group)

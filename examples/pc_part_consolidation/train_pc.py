@@ -13,7 +13,6 @@ import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-# optional: allow running this file directly after replacing project files
 PROJECT_ROOT = Path(__file__).resolve().parents[0]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
@@ -68,9 +67,9 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 64
+    batch_size = 32
     epochs = 3000
-    lr = 1e-4
+    lr = 5e-5
     entropy_coef = 0.03
     grad_clip = 1.0
 
@@ -84,6 +83,15 @@ def main():
     log_dir = f"runs/pc_general_graph_groupcount_{int(time.time())}"
     writer = SummaryWriter(log_dir=log_dir)
     print("TensorBoard log dir:", log_dir)
+
+    # =========================
+    # 🔥 [추가] 모델 저장 설정
+    # =========================
+    save_dir = Path("checkpoints")
+    save_dir.mkdir(exist_ok=True)
+
+    best_model_path = save_dir / "best_model.pt"
+    best_eval_reward = -1e9
 
     # =========================
     # Environment / Model
@@ -143,7 +151,7 @@ def main():
             epsilon=epsilon,
         )
 
-        # greedy baseline on the SAME initial instances
+        # greedy baseline
         policy.eval()
         with torch.no_grad():
             _, _, _, _, _, reward_greedy, _ = rollout_episode_from_td(
@@ -168,6 +176,16 @@ def main():
         torch.nn.utils.clip_grad_norm_(policy.parameters(), grad_clip)
         optimizer.step()
 
+        # =========================
+        # 🔥 [추가] checkpoint 저장
+        # =========================
+        if ep % 100 == 0:
+            torch.save({
+                "epoch": ep,
+                "policy": policy.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }, save_dir / f"pc_model_ep{ep}.pt")
+
         groups = env.actions_to_groups(actions, N=gen.num_nodes)
         avg_group_count = float(np.mean([len(g) for g in groups]))
         avg_group_size = float(
@@ -178,39 +196,9 @@ def main():
 
         writer.add_scalar("train/reward_total", total_reward.mean().item(), ep)
         writer.add_scalar("train/reward_greedy", reward_greedy.mean().item(), ep)
-        writer.add_scalar("train/reward_step_mean", avg_step_reward, ep)
-        writer.add_scalar("train/reward_terminal_mean", avg_terminal_reward, ep)
         writer.add_scalar("train/loss", loss.item(), ep)
-        writer.add_scalar("train/loss_pg", loss_pg.item(), ep)
-        writer.add_scalar("train/advantage", advantage.mean().item(), ep)
         writer.add_scalar("train/entropy", entropy_mean.item(), ep)
         writer.add_scalar("train/epsilon", epsilon, ep)
-        writer.add_scalar("train/avg_group_count", avg_group_count, ep)
-        writer.add_scalar("train/avg_group_size", avg_group_size, ep)
-
-        flat_actions = actions.reshape(-1).detach().cpu().numpy()
-        counts = np.zeros(gen.num_nodes)
-        for a in range(gen.num_nodes):
-            counts[a] = np.sum(flat_actions == a)
-        probs = counts / max(counts.sum(), 1.0)
-
-        fig, ax = plt.subplots()
-        ax.bar(range(gen.num_nodes), probs)
-        ax.set_title(f"Action Distribution (ep={ep})")
-        ax.set_xlabel("Action Index")
-        ax.set_ylabel("Probability")
-        ax.set_ylim(0, 1)
-        writer.add_figure("action_dist/bar", fig, ep)
-        plt.close(fig)
-
-        actions_np = actions.detach().cpu().numpy()
-        fig2, ax2 = plt.subplots()
-        ax2.imshow(actions_np, aspect="auto", cmap="viridis")
-        ax2.set_title(f"Action Heatmap (ep={ep})")
-        ax2.set_xlabel("Step")
-        ax2.set_ylabel("Batch")
-        writer.add_figure("action_dist/heatmap", fig2, ep)
-        plt.close(fig2)
 
         if ep % 10 == 0:
             policy.eval()
@@ -224,13 +212,30 @@ def main():
                     sample=False,
                     epsilon=0.0,
                 )
-            writer.add_scalar("eval/reward_total", reward_eval.mean().item(), ep)
+
+            avg_eval = reward_eval.mean().item()
+
+            writer.add_scalar("eval/reward_total", avg_eval, ep)
+
+            # =========================
+            # 🔥 [추가] BEST MODEL 저장
+            # =========================
+            if avg_eval > best_eval_reward:
+                best_eval_reward = avg_eval
+
+                torch.save({
+                    "epoch": ep,
+                    "policy": policy.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "best_reward": best_eval_reward,
+                }, best_model_path)
+
+                print(f"🔥 BEST MODEL UPDATED @ ep {ep} | reward={avg_eval:.4f}")
 
             print(
                 f"[{ep:5d}] "
                 f"train_total={total_reward.mean().item():.4f} "
-                f"greedy={reward_greedy.mean().item():.4f} "
-                f"eval_total={reward_eval.mean().item():.4f} "
+                f"eval_total={avg_eval:.4f} "
                 f"loss={loss.item():.4f} "
                 f"entropy={entropy_mean.item():.4f} "
                 f"avg_group_count={avg_group_count:.2f} "
