@@ -203,7 +203,6 @@ def inst_to_td(inst, env):
             "open_group_size": open_group_size,
             "closed_group_count": closed_group_count,
             "fallback_part_mask": torch.zeros((1, num_nodes), dtype=torch.bool, device=device),
-            "step_reward": torch.zeros((1,), dtype=torch.float32, device=device),
             "done": torch.zeros((1, 1), dtype=torch.bool, device=device),
             "action_mask": torch.ones((1, num_nodes), dtype=torch.bool, device=device),
         },

@@ -44,7 +44,7 @@ class PartConsolidationEnv:
         1..N  : choose one real part and add it to the current group
 
     Reward:
-        ONLY: -(number of groups)
+        terminal reward only
     """
 
     def __init__(
@@ -61,20 +61,10 @@ class PartConsolidationEnv:
         self.N = self.generator.num_nodes
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
-        self._step_reward_stats = {
-            "strength": RunningZScore(),
-            "sep": RunningZScore(),
-            "fallback": RunningZScore(),
-        }
         self._terminal_reward_stats = {
             "infeasible_solution": RunningZScore(),
             "num_groups": RunningZScore(),
             "total_internal_strength": RunningZScore(),
-        }
-        self._step_reward_weights = {
-            "strength": 0.5,
-            "sep": -0.2,
-            "fallback": -2.0,
         }
         self._terminal_reward_weights = {
             "infeasible_solution": -3.0,
@@ -101,7 +91,6 @@ class PartConsolidationEnv:
                 "open_group_size": open_group_size,
                 "closed_group_count": closed_group_count,
                 "fallback_part_mask": torch.zeros((B, self.N), dtype=torch.bool, device=self.device),
-                "step_reward": torch.zeros((B,), dtype=torch.float32, device=self.device),
                 "done": torch.zeros((B, 1), dtype=torch.bool, device=self.device),
                 "action_mask": torch.ones((B, self.N), dtype=torch.bool, device=self.device),
             },
@@ -197,10 +186,6 @@ class PartConsolidationEnv:
 
         is_sep = action.eq(0)
         is_part = ~is_sep
-        step_reward = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
-        strength_gain = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
-        sep_used = is_sep.float()
-        fallback_used = torch.zeros((B,), dtype=torch.float32, device=assigned.device)
 
         # SEP
         if is_sep.any():
@@ -214,19 +199,9 @@ class PartConsolidationEnv:
         if is_part.any():
             rows = torch.where(is_part)[0]
             idx = action[is_part]
-            fallback_used[rows] = td["fallback_part_mask"][rows, idx].float()
-            strength_gain[rows] = (
-                td["W"][rows, idx, :] * open_group[rows].float()
-            ).sum(dim=-1)
             assigned[rows, idx] = True
             open_group[rows, idx] = True
             open_group_size[rows] += size[rows, idx, :]
-
-        step_reward = self._compose_step_reward(
-            strength_gain=strength_gain,
-            sep_used=sep_used,
-            fallback_used=fallback_used,
-        )
 
         all_assigned = assigned[:, 1:].all(dim=-1)
         open_empty = ~open_group.any(dim=-1)
@@ -239,7 +214,6 @@ class PartConsolidationEnv:
                 "open_group": open_group,
                 "open_group_size": open_group_size,
                 "closed_group_count": closed_group_count,
-                "step_reward": step_reward,
                 "done": done,
             }
         )
@@ -283,24 +257,6 @@ class PartConsolidationEnv:
             out.append(groups_b)
 
         return out
-
-    def _compose_step_reward(
-        self,
-        strength_gain: torch.Tensor,
-        sep_used: torch.Tensor,
-        fallback_used: torch.Tensor,
-    ) -> torch.Tensor:
-        reward = torch.zeros_like(strength_gain)
-        raw = {
-            "strength": strength_gain,
-            "sep": sep_used,
-            "fallback": fallback_used,
-        }
-        for name, values in raw.items():
-            reward = reward + self._step_reward_weights[name] * self._step_reward_stats[name].normalize(values)
-        for name, values in raw.items():
-            self._step_reward_stats[name].update(values)
-        return reward
 
     def _terminal_reward_components(self, groups: list[list[list[int]]], device: torch.device) -> dict[str, torch.Tensor]:
         if self._reward_static_td is None:

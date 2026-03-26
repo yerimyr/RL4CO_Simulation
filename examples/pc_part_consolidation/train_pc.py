@@ -35,7 +35,6 @@ def rollout_episode_from_td(
     actions = []
     logps = []
     entropies = []
-    step_rewards = []
 
     for _ in range(max_steps):
         action, logp, entropy, _ = policy.act(td, sample=sample, epsilon=epsilon)
@@ -44,7 +43,6 @@ def rollout_episode_from_td(
         entropies.append(entropy)
 
         td = env.step(td, action)
-        step_rewards.append(td["step_reward"])
 
         if td["done"].all():
             break
@@ -52,12 +50,11 @@ def rollout_episode_from_td(
     actions = torch.stack(actions, dim=1)
     logps = torch.stack(logps, dim=1)
     entropies = torch.stack(entropies, dim=1)
-    step_rewards = torch.stack(step_rewards, dim=1)
 
     terminal_reward = env.reward_from_actions(actions)
-    total_reward = step_rewards.sum(dim=1) + terminal_reward
+    total_reward = terminal_reward
 
-    return actions, logps, entropies, step_rewards, terminal_reward, total_reward, td
+    return actions, logps, entropies, terminal_reward, total_reward, td
 
 
 def main():
@@ -142,7 +139,7 @@ def main():
         epsilon = eps_start + (eps_end - eps_start) * frac
 
         td0 = env.reset(batch_size).to(device)
-        actions, logps, entropies, step_rewards, terminal_reward, total_reward, _ = rollout_episode_from_td(
+        actions, logps, entropies, terminal_reward, total_reward, _ = rollout_episode_from_td(
             env=env,
             policy=policy,
             td_init=td0,
@@ -154,7 +151,7 @@ def main():
         # greedy baseline
         policy.eval()
         with torch.no_grad():
-            _, _, _, _, _, reward_greedy, _ = rollout_episode_from_td(
+            _, _, _, reward_greedy, _, _ = rollout_episode_from_td(
                 env=env,
                 policy=policy,
                 td_init=td0,
@@ -191,7 +188,6 @@ def main():
         avg_group_size = float(
             np.mean([np.mean([len(x) for x in g]) if len(g) > 0 else 0.0 for g in groups])
         )
-        avg_step_reward = step_rewards.mean().item()
         avg_terminal_reward = terminal_reward.mean().item()
 
         writer.add_scalar("train/reward_total", total_reward.mean().item(), ep)
@@ -204,7 +200,7 @@ def main():
             policy.eval()
             with torch.no_grad():
                 td_eval = env.reset(batch_size=256).to(device)
-                _, _, _, _, _, reward_eval, _ = rollout_episode_from_td(
+                _, _, _, reward_eval, _, _ = rollout_episode_from_td(
                     env=env,
                     policy=policy,
                     td_init=td_eval,
