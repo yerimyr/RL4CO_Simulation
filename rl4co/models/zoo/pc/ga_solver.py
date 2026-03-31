@@ -22,11 +22,11 @@ class GASolver:
 
     def __init__(
         self,
-        pop_size: int = 80,
+        pop_size: int = 120,
         generations: int = 300,
-        elite_size: int = 4,
-        tournament_size: int = 4,
-        mutation_rate: float = 0.7,
+        elite_size: int = 2,
+        tournament_size: int = 3,
+        mutation_rate: float = 0.85,
         seed: int | None = None,
     ):
         self.pop_size = int(pop_size)
@@ -38,6 +38,8 @@ class GASolver:
         self.last_best_score: float | None = None
         self.last_generation_best_scores: list[float] = []
         self.last_generation_mean_scores: list[float] = []
+        self.last_generation_best_raw_scores: list[float] = []
+        self.last_generation_mean_raw_scores: list[float] = []
         self.score_weights = dict(DEFAULT_SCORE_WEIGHTS)
 
     def solve(self, inst):
@@ -46,12 +48,15 @@ class GASolver:
 
         pop = [self._random_solution(inst) for _ in range(self.pop_size)]
         scores = self._population_scores(pop, inst)
+        raw_scores = [self._fitness(sol, inst) for sol in pop]
 
         best_idx = int(np.argmax(scores))
         best_sol = pop[best_idx].copy()
         best_score = float(scores[best_idx])
         self.last_generation_best_scores = [best_score]
         self.last_generation_mean_scores = [float(np.mean(scores))]
+        self.last_generation_best_raw_scores = [float(np.max(raw_scores))]
+        self.last_generation_mean_raw_scores = [float(np.mean(raw_scores))]
 
         for _ in range(self.generations):
             ranked = sorted(zip(scores, pop), key=lambda x: x[0], reverse=True)
@@ -70,11 +75,14 @@ class GASolver:
 
             pop = new_pop
             scores = self._population_scores(pop, inst)
+            raw_scores = [self._fitness(sol, inst) for sol in pop]
 
             gen_best_idx = int(np.argmax(scores))
             gen_best_score = float(scores[gen_best_idx])
             self.last_generation_best_scores.append(gen_best_score)
             self.last_generation_mean_scores.append(float(np.mean(scores)))
+            self.last_generation_best_raw_scores.append(float(np.max(raw_scores)))
+            self.last_generation_mean_raw_scores.append(float(np.mean(raw_scores)))
             if gen_best_score > best_score:
                 best_score = gen_best_score
                 best_sol = pop[gen_best_idx].copy()
@@ -94,19 +102,30 @@ class GASolver:
 
         generations = list(range(len(self.last_generation_best_scores)))
 
-        plt.figure(figsize=(8, 4.5))
-        plt.plot(generations, self.last_generation_best_scores, label="Best Fitness", linewidth=2)
-        plt.plot(generations, self.last_generation_mean_scores, label="Mean Fitness", linewidth=1.8)
-        plt.xlabel("Generation")
-        plt.ylabel("Fitness")
-        plt.title("GA Fitness by Generation")
-        plt.grid(True, alpha=0.3)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150)
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+
+        axes[0].plot(generations, self.last_generation_best_scores, label="Best Fitness", linewidth=2)
+        axes[0].plot(generations, self.last_generation_mean_scores, label="Mean Fitness", linewidth=1.8)
+        axes[0].set_xlabel("Generation")
+        axes[0].set_ylabel("Fitness")
+        axes[0].set_title("Normalized Fitness by Generation")
+        axes[0].grid(True, alpha=0.3)
+        axes[0].legend()
+
+        axes[1].plot(generations, self.last_generation_best_raw_scores, label="Best Raw Fitness", linewidth=2)
+        axes[1].plot(generations, self.last_generation_mean_raw_scores, label="Mean Raw Fitness", linewidth=1.8)
+        axes[1].set_xlabel("Generation")
+        axes[1].set_ylabel("Raw Fitness")
+        axes[1].set_title("Raw Fitness by Generation")
+        axes[1].grid(True, alpha=0.3)
+        axes[1].legend()
+
+        fig.suptitle("GA Fitness by Generation")
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=150)
         if show:
             plt.show()
-        plt.close()
+        plt.close(fig)
         return save_path
 
     def _random_solution(self, inst) -> np.ndarray:
