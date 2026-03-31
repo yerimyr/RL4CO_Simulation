@@ -37,8 +37,6 @@ class PartConsolidationEnv:
         self._terminal_reward_weights = {
             "infeasible_solution": -100.0,
             "infeasible_groups": -20.0,
-            "uncovered_parts": -30.0,
-            "duplicate_parts": -30.0,
             "num_groups": -2.0,
             "total_internal_strength": 1.0,
             "feasible_pair_count": 0.5,
@@ -267,10 +265,6 @@ class PartConsolidationEnv:
         feasible = torch.zeros((B,), dtype=torch.float32, device=device)
         infeasible_solution = torch.zeros((B,), dtype=torch.float32, device=device)
         infeasible_groups = torch.zeros((B,), dtype=torch.float32, device=device)
-        coverage_ok = torch.zeros((B,), dtype=torch.float32, device=device)
-        uncovered_parts = torch.zeros((B,), dtype=torch.float32, device=device)
-        duplicate_parts = torch.zeros((B,), dtype=torch.float32, device=device)
-        invalid_parts = torch.zeros((B,), dtype=torch.float32, device=device)
         num_groups = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=device)
         total_internal_strength = torch.zeros((B,), dtype=torch.float32, device=device)
         feasible_pair_count = torch.zeros((B,), dtype=torch.float32, device=device)
@@ -288,13 +282,6 @@ class PartConsolidationEnv:
                 if not self._group_feasible(group, compat[b], size[b], build_limit[b], isstandard[b], td["assembly_adj"][b]):
                     infeasible = True
                     infeasible_groups[b] += 1.0
-            coverage = self._coverage_report(groups_b, num_parts=self.generator.num_parts, device=device)
-            coverage_ok[b] = coverage["coverage_ok"]
-            uncovered_parts[b] = coverage["uncovered_parts"]
-            duplicate_parts[b] = coverage["duplicate_parts"]
-            invalid_parts[b] = coverage["invalid_parts"]
-            if not bool(coverage["coverage_ok"].item()):
-                infeasible = True
             infeasible_solution[b] = float(infeasible)
             feasible[b] = float(not infeasible)
 
@@ -302,10 +289,6 @@ class PartConsolidationEnv:
             "feasible": feasible,
             "infeasible_solution": infeasible_solution,
             "infeasible_groups": infeasible_groups,
-            "coverage_ok": coverage_ok,
-            "uncovered_parts": uncovered_parts,
-            "duplicate_parts": duplicate_parts,
-            "invalid_parts": invalid_parts,
             "num_groups": num_groups,
             "total_internal_strength": total_internal_strength,
             "feasible_pair_count": feasible_pair_count,
@@ -335,32 +318,6 @@ class PartConsolidationEnv:
         has_open = open_group.any(dim=-1, keepdim=True)
         has_valid_action = action_mask.any(dim=-1, keepdim=True)
         return (~all_assigned) & (~has_open) & (~has_valid_action)
-
-    def _coverage_report(self, groups: list[list[int]], num_parts: int, device: torch.device) -> dict[str, torch.Tensor]:
-        seen = torch.zeros((num_parts,), dtype=torch.long, device=device)
-        invalid_parts = 0
-
-        for group in groups:
-            for node in group:
-                part_idx = int(node) - 1
-                if 0 <= part_idx < num_parts:
-                    seen[part_idx] += 1
-                else:
-                    invalid_parts += 1
-
-        uncovered_parts = (seen == 0).sum().float()
-        duplicate_parts = torch.clamp(seen - 1, min=0).sum().float()
-        coverage_ok = torch.tensor(
-            float(uncovered_parts.item() == 0.0 and duplicate_parts.item() == 0.0 and invalid_parts == 0),
-            dtype=torch.float32,
-            device=device,
-        )
-        return {
-            "coverage_ok": coverage_ok,
-            "uncovered_parts": uncovered_parts,
-            "duplicate_parts": duplicate_parts,
-            "invalid_parts": torch.tensor(float(invalid_parts), dtype=torch.float32, device=device),
-        }
 
     def _group_feasible(
         self,

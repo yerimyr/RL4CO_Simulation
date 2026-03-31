@@ -8,8 +8,6 @@ import numpy as np
 DEFAULT_SCORE_WEIGHTS = {
     "infeasible_solution": -3.0,
     "infeasible_groups": -2.0,
-    "uncovered_parts": -2.5,
-    "duplicate_parts": -2.5,
     "num_groups": -1.5,
     "total_internal_strength": 1.0,
     "feasible_pair_count": 0.5,
@@ -95,29 +93,6 @@ def check_r3(groups: list[list[int]], inst) -> bool:
     return True
 
 
-def coverage_report(groups: list[list[int]], inst) -> dict[str, float]:
-    num_parts = int(inst["num_parts"])
-    seen = np.zeros((num_parts,), dtype=int)
-    invalid_parts = 0
-
-    for group in groups:
-        for node in group:
-            if 0 <= int(node) < num_parts:
-                seen[int(node)] += 1
-            else:
-                invalid_parts += 1
-
-    uncovered_parts = int(np.sum(seen == 0))
-    duplicate_parts = int(np.sum(np.clip(seen - 1, 0, None)))
-    coverage_ok = float(uncovered_parts == 0 and duplicate_parts == 0 and invalid_parts == 0)
-    return {
-        "coverage_ok": coverage_ok,
-        "uncovered_parts": float(uncovered_parts),
-        "duplicate_parts": float(duplicate_parts),
-        "invalid_parts": float(invalid_parts),
-    }
-
-
 def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
     infeasible_groups = 0
     total_internal_strength = 0.0
@@ -129,20 +104,11 @@ def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
         total_internal_strength += internal_strength(group, inst)
         total_feasible_pairs += feasible_pair_count(group, inst)
 
-    coverage = coverage_report(groups, inst)
-    infeasible_solution = int(
-        infeasible_groups > 0
-        or not check_r3(groups, inst)
-        or not bool(coverage["coverage_ok"])
-    )
+    infeasible_solution = int(infeasible_groups > 0 or not check_r3(groups, inst))
     return {
         "feasible": float(1 - infeasible_solution),
         "infeasible_solution": float(infeasible_solution),
         "infeasible_groups": float(infeasible_groups),
-        "coverage_ok": float(coverage["coverage_ok"]),
-        "uncovered_parts": float(coverage["uncovered_parts"]),
-        "duplicate_parts": float(coverage["duplicate_parts"]),
-        "invalid_parts": float(coverage["invalid_parts"]),
         "num_groups": float(len(groups)),
         "total_internal_strength": float(total_internal_strength),
         "feasible_pair_count": float(total_feasible_pairs),
