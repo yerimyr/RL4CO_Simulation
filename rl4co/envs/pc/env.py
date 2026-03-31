@@ -67,7 +67,7 @@ class PartConsolidationEnv:
             "total_internal_strength": RunningZScore(),
         }
         self._terminal_reward_weights = {
-            "infeasible_solution": -200.0,
+            "infeasible_solution": -1000.0,
             "num_groups": -50.0,
             "total_internal_strength": 30.0,
         }

@@ -19,7 +19,7 @@ from rl4co.models.zoo.pc.cpccd_solver import CPCCDSolver
 
 
 def td_to_inst(td, num_parts: int) -> dict:
-    return {
+    inst = {
         "num_parts": int(num_parts),
         "material": td["material"][0, 1:].cpu().numpy(),
         "size": td["size"][0, 1:].cpu().numpy(),
@@ -37,6 +37,9 @@ def td_to_inst(td, num_parts: int) -> dict:
         "relation_valid": td["relation_valid"][0, 1:, 1:].cpu().numpy(),
         "relation_consistent": bool(td["relation_consistent"][0].item()),
     }
+    if "topology_id" in td.keys():
+        inst["topology_id"] = int(td["topology_id"][0].item())
+    return inst
 
 
 def fmt_bool(flag: bool) -> str:
@@ -225,12 +228,26 @@ def instance_consistency_checks(inst: dict) -> list[str]:
 
 def render_instance_header(idx: int, inst: dict) -> list[str]:
     adj = np.asarray(inst["assembly_adj"]).astype(bool)
+    topology_names = [
+        "chain",
+        "star",
+        "tree",
+        "two_module_bridge",
+        "dense_clustered",
+        "sparse_random",
+    ]
+    topo_text = "unknown"
+    if "topology_id" in inst:
+        topo_id = int(inst["topology_id"])
+        if 0 <= topo_id < len(topology_names):
+            topo_text = topology_names[topo_id]
     lines = [
         "",
         "=" * 90,
         f"INSTANCE {idx}",
         "=" * 90,
         f"num_parts: {inst['num_parts']}",
+        f"topology: {topo_text}",
         f"build_limit [L, W, H]: {fmt_vec(inst['build_limit'])}",
         "part summary:",
     ]

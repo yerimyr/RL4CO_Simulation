@@ -65,14 +65,17 @@ def main():
     # Hyperparameters
     # =========================
     batch_size = 32
-    epochs = 10000
+    epochs = 5000
     lr = 1e-4
     entropy_coef = 0.03
     grad_clip = 1.0
 
-    eps_start = 0.3
-    eps_end = 0.05
-    eps_decay_epochs = 5000
+    # Prefer on-policy exploration through entropy regularization.
+    # Epsilon-greedy overwrites sampled actions and can make REINFORCE updates noisy.
+    use_epsilon_exploration = False
+    eps_start = 0.05
+    eps_end = 0.0
+    eps_decay_epochs = 1000
 
     # =========================
     # TensorBoard
@@ -96,7 +99,7 @@ def main():
     generator_params = dict(
         num_parts=4,
         material_types=3,
-        p_relative_motion=0.15,
+        p_relative_motion=0.05,
         p_extra_edge=0.30,
         L_low=5.0,
         L_high=160.0,
@@ -107,8 +110,8 @@ def main():
         build_limit_L=260.0,
         build_limit_W=120.0,
         build_limit_H=80.0,
-        p_maint_H=0.20,
-        p_standard=0.10,
+        p_maint_H=0.10,
+        p_standard=0.02,
     )
 
     gen = FPIGenerator(**generator_params)
@@ -135,8 +138,11 @@ def main():
     for ep in range(1, epochs + 1):
         policy.train()
 
-        frac = min(1.0, ep / float(eps_decay_epochs))
-        epsilon = eps_start + (eps_end - eps_start) * frac
+        if use_epsilon_exploration:
+            frac = min(1.0, ep / float(eps_decay_epochs))
+            epsilon = eps_start + (eps_end - eps_start) * frac
+        else:
+            epsilon = 0.0
 
         td0 = env.reset(batch_size).to(device)
         actions, logps, entropies, terminal_reward, total_reward, _ = rollout_episode_from_td(

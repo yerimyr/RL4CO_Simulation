@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import torch
 from tensordict import TensorDict
 
@@ -28,10 +29,19 @@ class FPIGeneratorParams:
     p_relative_motion: float = 0.15
     p_extra_edge: float = 0.30
 
+    # topology generation
+    topology_mode: str = "mixed"
+    p_chain: float = 0.15
+    p_star: float = 0.15
+    p_tree: float = 0.20
+    p_two_module_bridge: float = 0.20
+    p_dense_clustered: float = 0.15
+    p_sparse_random: float = 0.15
+
     # build limits
-    build_limit_L: float = 260.0
-    build_limit_W: float = 120.0
-    build_limit_H: float = 80.0
+    build_limit_L: float = 360.0
+    build_limit_W: float = 180.0
+    build_limit_H: float = 120.0
 
 
 class FPIGenerator:
@@ -62,6 +72,14 @@ class FPIGenerator:
         self.p = FPIGeneratorParams(**kwargs)
         self.num_parts = self.p.num_parts
         self.num_nodes = self.num_parts + 1  # + SEP token
+        self.topology_names = [
+            "chain",
+            "star",
+            "tree",
+            "two_module_bridge",
+            "dense_clustered",
+            "sparse_random",
+        ]
 
         # material one-hot + size(3) + maintfreq + isstandard + normalized degree
         self.node_feat_dim = self.p.material_types + 3 + 1 + 1 + 1
@@ -74,41 +92,156 @@ class FPIGenerator:
             dtype=torch.float32,
         )
 
-    def _build_general_graph_adjacency(self, batch_size: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Create a CONNECTED undirected graph for each batch instance.
+    def _add_undirected_edge(self, adj: torch.Tensor, i: int, j: int) -> None:
+        if i == j:
+            return
+        adj[i, j] = True
+        adj[j, i] = True
 
-        Step 1) spanning tree for guaranteed connectivity
-        Step 2) add extra random edges
-        Step 3) degree-based scalar positional feature
+    def _connect_sequence(self, adj: torch.Tensor, nodes: list[int]) -> None:
+        for idx in range(len(nodes) - 1):
+            self._add_undirected_edge(adj, nodes[idx], nodes[idx + 1])
+
+    def _sample_topology_id(self, device: torch.device) -> int:
+        mode = self.p.topology_mode
+        if mode != "mixed":
+            if mode not in self.topology_names:
+                raise ValueError(f"Unknown topology_mode: {mode}")
+            return self.topology_names.index(mode)
+
+        probs = torch.tensor(
+            [
+                self.p.p_chain,
+                self.p.p_star,
+                self.p.p_tree,
+                self.p.p_two_module_bridge,
+                self.p.p_dense_clustered,
+                self.p.p_sparse_random,
+            ],
+            dtype=torch.float32,
+            device=device,
+        )
+        probs = probs / probs.sum().clamp_min(1e-8)
+        return int(torch.multinomial(probs, num_samples=1).item())
+
+    def _build_chain_adjacency(self, device: torch.device) -> torch.Tensor:
+        n = self.num_parts
+        adj = torch.zeros((n, n), dtype=torch.bool, device=device)
+        order = torch.randperm(n, device=device).tolist()
+        self._connect_sequence(adj, order)
+        return adj
+
+    def _build_star_adjacency(self, device: torch.device) -> torch.Tensor:
+        n = self.num_parts
+        adj = torch.zeros((n, n), dtype=torch.bool, device=device)
+        center = int(torch.randint(0, n, (1,), device=device).item())
+        for node in range(n):
+            if node != center:
+                self._add_undirected_edge(adj, center, node)
+        return adj
+
+    def _build_tree_adjacency(self, device: torch.device) -> torch.Tensor:
+        n = self.num_parts
+        adj = torch.zeros((n, n), dtype=torch.bool, device=device)
+        nodes = torch.randperm(n, device=device)
+        for i in range(1, n):
+            child = int(nodes[i].item())
+            parent_idx = int(torch.randint(0, i, (1,), device=device).item())
+            parent = int(nodes[parent_idx].item())
+            self._add_undirected_edge(adj, parent, child)
+        return adj
+
+    def _build_two_module_bridge_adjacency(self, device: torch.device) -> torch.Tensor:
+        n = self.num_parts
+        adj = torch.zeros((n, n), dtype=torch.bool, device=device)
+        order = torch.randperm(n, device=device).tolist()
+        split = max(1, n // 2)
+        if split >= n:
+            split = n - 1
+        left = order[:split]
+        right = order[split:]
+
+        self._connect_sequence(adj, left)
+        self._connect_sequence(adj, right)
+
+        for group in (left, right):
+            for i in range(len(group)):
+                for j in range(i + 1, len(group)):
+                    if not adj[group[i], group[j]] and torch.rand(1, device=device).item() < 0.65:
+                        self._add_undirected_edge(adj, group[i], group[j])
+
+        self._add_undirected_edge(adj, left[-1], right[0])
+        return adj
+
+    def _build_dense_clustered_adjacency(self, device: torch.device) -> torch.Tensor:
+        n = self.num_parts
+        adj = torch.zeros((n, n), dtype=torch.bool, device=device)
+        order = torch.randperm(n, device=device).tolist()
+        num_clusters = 3 if n >= 6 else 2
+        splits = np.array_split(order, num_clusters)
+        clusters = [list(map(int, split.tolist() if hasattr(split, "tolist") else split)) for split in splits if len(split) > 0]
+
+        for cluster in clusters:
+            self._connect_sequence(adj, cluster)
+            for i in range(len(cluster)):
+                for j in range(i + 1, len(cluster)):
+                    if not adj[cluster[i], cluster[j]] and torch.rand(1, device=device).item() < 0.85:
+                        self._add_undirected_edge(adj, cluster[i], cluster[j])
+
+        for idx in range(len(clusters) - 1):
+            self._add_undirected_edge(adj, clusters[idx][-1], clusters[idx + 1][0])
+            if torch.rand(1, device=device).item() < 0.20:
+                self._add_undirected_edge(adj, clusters[idx][0], clusters[idx + 1][-1])
+        return adj
+
+    def _build_sparse_random_connected_adjacency(self, device: torch.device) -> torch.Tensor:
+        adj = self._build_tree_adjacency(device)
+        n = self.num_parts
+        extra_prob = min(self.p.p_extra_edge, 0.12)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if not adj[i, j] and torch.rand(1, device=device).item() < extra_prob:
+                    self._add_undirected_edge(adj, i, j)
+        return adj
+
+    def _build_adjacency_from_topology(self, topology_id: int, device: torch.device) -> torch.Tensor:
+        if topology_id == 0:
+            return self._build_chain_adjacency(device)
+        if topology_id == 1:
+            return self._build_star_adjacency(device)
+        if topology_id == 2:
+            return self._build_tree_adjacency(device)
+        if topology_id == 3:
+            return self._build_two_module_bridge_adjacency(device)
+        if topology_id == 4:
+            return self._build_dense_clustered_adjacency(device)
+        if topology_id == 5:
+            return self._build_sparse_random_connected_adjacency(device)
+        raise ValueError(f"Unknown topology id: {topology_id}")
+
+    def _build_general_graph_adjacency(
+        self, batch_size: int, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Create a CONNECTED undirected graph for each batch instance from
+        a mixture of topology families. This gives the random generator
+        structural diversity, not just attribute diversity.
         """
         B = batch_size
         N = self.num_parts
 
         adj = torch.zeros((B, N, N), dtype=torch.bool, device=device)
+        topology_id = torch.zeros((B,), dtype=torch.long, device=device)
 
         for b in range(B):
-            nodes = torch.randperm(N, device=device)
-
-            # spanning tree
-            for i in range(1, N):
-                child = int(nodes[i].item())
-                parent_idx = int(torch.randint(0, i, (1,), device=device).item())
-                parent = int(nodes[parent_idx].item())
-                adj[b, parent, child] = True
-                adj[b, child, parent] = True
-
-            # extra edges
-            for i in range(N):
-                for j in range(i + 1, N):
-                    if not adj[b, i, j] and torch.rand(1, device=device).item() < self.p.p_extra_edge:
-                        adj[b, i, j] = True
-                        adj[b, j, i] = True
+            topo_id = self._sample_topology_id(device)
+            topology_id[b] = topo_id
+            adj[b] = self._build_adjacency_from_topology(topo_id, device)
 
         degree = adj.sum(dim=-1).float()
         max_degree = degree.max(dim=-1, keepdim=True).values.clamp_min(1.0)
         pos1d = (degree / max_degree).unsqueeze(-1)
-        return adj, pos1d
+        return adj, pos1d, topology_id
 
     def __call__(self, batch_size: int, device: torch.device | str = "cpu") -> TensorDict:
         device = torch.device(device)
@@ -132,7 +265,7 @@ class FPIGenerator:
         # ------------------------------
         # 2) general graph adjacency
         # ------------------------------
-        adj_parts, pos1d = self._build_general_graph_adjacency(B, device=device)
+        adj_parts, pos1d, topology_id = self._build_general_graph_adjacency(B, device=device)
 
         # ------------------------------
         # 3) pair relations (ONLY for adjacent pairs)
@@ -267,6 +400,7 @@ class FPIGenerator:
             {
                 "node_features": node_features,
                 "edge_features": edge_features,
+                "topology_id": topology_id,
                 "material": material_all,
                 "size": size_all,
                 "maintfreq": maint_all,
