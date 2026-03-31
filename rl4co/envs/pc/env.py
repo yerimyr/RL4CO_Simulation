@@ -67,9 +67,9 @@ class PartConsolidationEnv:
             "total_internal_strength": RunningZScore(),
         }
         self._terminal_reward_weights = {
-            "infeasible_solution": -3.0,
-            "num_groups": -1.5,
-            "total_internal_strength": 1.0,
+            "infeasible_solution": -200.0,
+            "num_groups": -50.0,
+            "total_internal_strength": 30.0,
         }
 
     def reset(self, batch_size: int) -> TensorDict:

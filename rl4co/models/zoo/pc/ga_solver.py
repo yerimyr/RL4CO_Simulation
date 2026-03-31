@@ -36,6 +36,8 @@ class GASolver:
         self.mutation_rate = float(mutation_rate)
         self.rng = random.Random(seed)
         self.last_best_score: float | None = None
+        self.last_generation_best_scores: list[float] = []
+        self.last_generation_mean_scores: list[float] = []
         self.score_weights = dict(DEFAULT_SCORE_WEIGHTS)
 
     def solve(self, inst):
@@ -48,6 +50,8 @@ class GASolver:
         best_idx = int(np.argmax(scores))
         best_sol = pop[best_idx].copy()
         best_score = float(scores[best_idx])
+        self.last_generation_best_scores = [best_score]
+        self.last_generation_mean_scores = [float(np.mean(scores))]
 
         for _ in range(self.generations):
             ranked = sorted(zip(scores, pop), key=lambda x: x[0], reverse=True)
@@ -69,6 +73,8 @@ class GASolver:
 
             gen_best_idx = int(np.argmax(scores))
             gen_best_score = float(scores[gen_best_idx])
+            self.last_generation_best_scores.append(gen_best_score)
+            self.last_generation_mean_scores.append(float(np.mean(scores)))
             if gen_best_score > best_score:
                 best_score = gen_best_score
                 best_sol = pop[gen_best_idx].copy()
@@ -76,6 +82,32 @@ class GASolver:
         self.last_best_score = best_score
         end = time.time()
         return self._decode(best_sol), end - start
+
+    def plot_fitness_history(self, save_path: str = "ga_fitness_history.png", show: bool = False) -> str:
+        if not self.last_generation_best_scores:
+            raise RuntimeError("No GA fitness history available. Run solve(...) first.")
+
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        generations = list(range(len(self.last_generation_best_scores)))
+
+        plt.figure(figsize=(8, 4.5))
+        plt.plot(generations, self.last_generation_best_scores, label="Best Fitness", linewidth=2)
+        plt.plot(generations, self.last_generation_mean_scores, label="Mean Fitness", linewidth=1.8)
+        plt.xlabel("Generation")
+        plt.ylabel("Fitness")
+        plt.title("GA Fitness by Generation")
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150)
+        if show:
+            plt.show()
+        plt.close()
+        return save_path
 
     def _random_solution(self, inst) -> np.ndarray:
         n = int(inst["num_parts"])

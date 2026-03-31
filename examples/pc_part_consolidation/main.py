@@ -285,6 +285,7 @@ def run_fixed(env, policy):
 
     g1, t1 = cpccd.solve(inst)
     g2, t2 = ga.solve(inst)
+    ga.plot_fitness_history("ga_fitness_fixed.png")
     g3, t3 = run_nco(env, policy, td)
 
     m1 = evaluate_groups(g1, inst)
@@ -302,6 +303,8 @@ def run_generalization(env, policy, num_instances=30):
     results = []
     cpccd = CPCCDSolver()
     ga = GASolver()
+    plot_dir = Path("ga_fitness_generalization")
+    plot_dir.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_instances):
         td = env.reset(batch_size=1)
@@ -309,6 +312,7 @@ def run_generalization(env, policy, num_instances=30):
 
         g1, t1 = cpccd.solve(inst)
         g2, t2 = ga.solve(inst)
+        ga.plot_fitness_history(str(plot_dir / f"ga_fitness_instance_{i}.png"))
         g3, t3 = run_nco(env, policy, td)
 
         results.append(result_row("generalization", i, "CPCCD", g1, t1, evaluate_groups(g1, inst)))
