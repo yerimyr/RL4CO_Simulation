@@ -203,12 +203,15 @@ def inst_to_td(inst, env):
             "open_group_size": open_group_size,
             "closed_group_count": closed_group_count,
             "fallback_part_mask": torch.zeros((1, num_nodes), dtype=torch.bool, device=device),
+            "dead_end": torch.zeros((1, 1), dtype=torch.bool, device=device),
             "done": torch.zeros((1, 1), dtype=torch.bool, device=device),
             "action_mask": torch.ones((1, num_nodes), dtype=torch.bool, device=device),
         },
         batch_size=[1],
     )
     td["action_mask"] = env.get_action_mask(td)
+    td["dead_end"] = env._compute_dead_end(td["assigned"], td["open_group"], td["action_mask"])
+    td["done"] = td["done"] | td["dead_end"]
     return td
 
 
@@ -344,6 +347,9 @@ def save_results(results, filename):
             "feasible",
             "infeasible_solution",
             "infeasible_groups",
+            "coverage_ok",
+            "uncovered_parts",
+            "duplicate_parts",
             "total_internal_strength",
             "feasible_pair_count",
             "score",
@@ -359,6 +365,9 @@ def save_results(results, filename):
                 row["feasible"],
                 row["infeasible_solution"],
                 row["infeasible_groups"],
+                row["coverage_ok"],
+                row["uncovered_parts"],
+                row["duplicate_parts"],
                 row["total_internal_strength"],
                 row["feasible_pair_count"],
                 row["score"],
@@ -376,6 +385,9 @@ def save_results(results, filename):
                 "feasible",
                 "infeasible_solution",
                 "infeasible_groups",
+                "coverage_ok",
+                "uncovered_parts",
+                "duplicate_parts",
                 "total_internal_strength",
                 "feasible_pair_count",
                 "score",
@@ -395,6 +407,9 @@ def summarize_results(results):
             "feasible": 0.0,
             "infeasible_solution": 0.0,
             "infeasible_groups": 0.0,
+            "coverage_ok": 0.0,
+            "uncovered_parts": 0.0,
+            "duplicate_parts": 0.0,
             "total_internal_strength": 0.0,
             "feasible_pair_count": 0.0,
             "score": 0.0,
@@ -412,6 +427,9 @@ def summarize_results(results):
         agg[key]["feasible"] += float(row["feasible"])
         agg[key]["infeasible_solution"] += float(row["infeasible_solution"])
         agg[key]["infeasible_groups"] += float(row["infeasible_groups"])
+        agg[key]["coverage_ok"] += float(row["coverage_ok"])
+        agg[key]["uncovered_parts"] += float(row["uncovered_parts"])
+        agg[key]["duplicate_parts"] += float(row["duplicate_parts"])
         agg[key]["total_internal_strength"] += float(row["total_internal_strength"])
         agg[key]["feasible_pair_count"] += float(row["feasible_pair_count"])
         agg[key]["score"] += float(row["score"])
@@ -429,6 +447,9 @@ def summarize_results(results):
                 "feasible": vals["feasible"] / count,
                 "infeasible_solution": vals["infeasible_solution"] / count,
                 "infeasible_groups": vals["infeasible_groups"] / count,
+                "coverage_ok": vals["coverage_ok"] / count,
+                "uncovered_parts": vals["uncovered_parts"] / count,
+                "duplicate_parts": vals["duplicate_parts"] / count,
                 "total_internal_strength": vals["total_internal_strength"] / count,
                 "feasible_pair_count": vals["feasible_pair_count"] / count,
                 "score": vals["score"] / count,

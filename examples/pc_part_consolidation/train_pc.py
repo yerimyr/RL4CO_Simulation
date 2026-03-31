@@ -65,9 +65,9 @@ def main():
     # Hyperparameters
     # =========================
     batch_size = 32
-    epochs = 5000
+    epochs = 3000
     lr = 1e-4
-    entropy_coef = 0.03
+    entropy_coef = 0.05
     grad_clip = 1.0
 
     # Prefer on-policy exploration through entropy regularization.
@@ -97,7 +97,7 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=4,
+        num_parts=20,
         material_types=3,
         p_relative_motion=0.05,
         p_extra_edge=0.30,
@@ -170,6 +170,7 @@ def main():
         advantage = total_reward - reward_greedy
         logp_sum = logps.sum(dim=1)
         entropy_mean = entropies.mean()
+        reward_metrics = env.reward_metrics_from_actions(actions)
 
         loss_pg = -(advantage.detach() * logp_sum).mean()
         loss = loss_pg - entropy_coef * entropy_mean
@@ -201,12 +202,20 @@ def main():
         writer.add_scalar("train/loss", loss.item(), ep)
         writer.add_scalar("train/entropy", entropy_mean.item(), ep)
         writer.add_scalar("train/epsilon", epsilon, ep)
+        writer.add_scalar("train/feasible_ratio", reward_metrics["feasible"].mean().item(), ep)
+        writer.add_scalar("train/infeasible_solution", reward_metrics["infeasible_solution"].mean().item(), ep)
+        writer.add_scalar("train/infeasible_groups", reward_metrics["infeasible_groups"].mean().item(), ep)
+        writer.add_scalar("train/uncovered_parts", reward_metrics["uncovered_parts"].mean().item(), ep)
+        writer.add_scalar("train/duplicate_parts", reward_metrics["duplicate_parts"].mean().item(), ep)
+        writer.add_scalar("train/num_groups", reward_metrics["num_groups"].mean().item(), ep)
+        writer.add_scalar("train/internal_strength", reward_metrics["total_internal_strength"].mean().item(), ep)
+        writer.add_scalar("train/feasible_pair_count", reward_metrics["feasible_pair_count"].mean().item(), ep)
 
         if ep % 10 == 0:
             policy.eval()
             with torch.no_grad():
                 td_eval = env.reset(batch_size=256).to(device)
-                _, _, _, reward_eval, _, _ = rollout_episode_from_td(
+                actions_eval, _, _, reward_eval, _, _ = rollout_episode_from_td(
                     env=env,
                     policy=policy,
                     td_init=td_eval,
@@ -214,10 +223,19 @@ def main():
                     sample=False,
                     epsilon=0.0,
                 )
+                eval_metrics = env.reward_metrics_from_actions(actions_eval)
 
             avg_eval = reward_eval.mean().item()
 
             writer.add_scalar("eval/reward_total", avg_eval, ep)
+            writer.add_scalar("eval/feasible_ratio", eval_metrics["feasible"].mean().item(), ep)
+            writer.add_scalar("eval/infeasible_solution", eval_metrics["infeasible_solution"].mean().item(), ep)
+            writer.add_scalar("eval/infeasible_groups", eval_metrics["infeasible_groups"].mean().item(), ep)
+            writer.add_scalar("eval/uncovered_parts", eval_metrics["uncovered_parts"].mean().item(), ep)
+            writer.add_scalar("eval/duplicate_parts", eval_metrics["duplicate_parts"].mean().item(), ep)
+            writer.add_scalar("eval/num_groups", eval_metrics["num_groups"].mean().item(), ep)
+            writer.add_scalar("eval/internal_strength", eval_metrics["total_internal_strength"].mean().item(), ep)
+            writer.add_scalar("eval/feasible_pair_count", eval_metrics["feasible_pair_count"].mean().item(), ep)
 
             # =========================
             # 🔥 [추가] BEST MODEL 저장
@@ -238,6 +256,8 @@ def main():
                 f"[{ep:5d}] "
                 f"train_total={total_reward.mean().item():.4f} "
                 f"eval_total={avg_eval:.4f} "
+                f"train_feasible={reward_metrics['feasible'].mean().item():.3f} "
+                f"eval_feasible={eval_metrics['feasible'].mean().item():.3f} "
                 f"loss={loss.item():.4f} "
                 f"entropy={entropy_mean.item():.4f} "
                 f"avg_group_count={avg_group_count:.2f} "

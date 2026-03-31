@@ -73,10 +73,6 @@ def node_feasible(node: int, inst: dict) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     ok = True
 
-    if bool(np.asarray(inst["isstandard"])[node]):
-        ok = False
-        reasons.append("isstandard=1")
-
     if "material_available" in inst and not bool(np.asarray(inst["material_available"])[node]):
         ok = False
         reasons.append("material unavailable")
@@ -165,6 +161,7 @@ def group_report(group: list[int], inst: dict) -> dict:
 
     pair_reports = []
     compat_all = True
+    standard_ok = not (len(group) >= 2 and np.asarray(inst["isstandard"]).astype(bool)[group].any())
     for idx_i in range(len(group)):
         for idx_j in range(idx_i + 1, len(group)):
             pair = pair_rule_report(group[idx_i], group[idx_j], inst)
@@ -174,12 +171,14 @@ def group_report(group: list[int], inst: dict) -> dict:
     node_all_ok = all(flag for flag, _ in node_reports.values())
     size_ok = bool(np.all(total_size <= build_limit))
     connected_ok = connected(group, adj)
-    group_ok = node_all_ok and size_ok and compat_all and connected_ok
+    group_ok = node_all_ok and standard_ok and size_ok and compat_all and connected_ok
 
     group_fail_reasons: list[str] = []
     if not node_all_ok:
         bad_nodes = [str(node) for node, (ok, _) in node_reports.items() if not ok]
         group_fail_reasons.append("node-level failure: " + ", ".join(bad_nodes))
+    if not standard_ok:
+        group_fail_reasons.append("standard part can only appear as a singleton group")
     if not size_ok:
         group_fail_reasons.append(
             f"group size {fmt_vec(total_size)} exceeds build_limit {fmt_vec(build_limit)}"

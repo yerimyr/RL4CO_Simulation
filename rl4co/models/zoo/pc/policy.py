@@ -122,7 +122,10 @@ class PCPolicy(nn.Module):
         logits = self.compute_logits(node_emb, td)
         logits = logits / self.temperature
 
-        mask = td["action_mask"]
+        mask = td["action_mask"].clone()
+        no_valid = ~mask.any(dim=-1)
+        if no_valid.any():
+            mask[no_valid, 0] = True
         logits = logits.masked_fill(~mask, -1e9)
         probs = F.softmax(logits, dim=-1)
         B = probs.size(0)

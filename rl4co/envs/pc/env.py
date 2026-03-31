@@ -6,35 +6,6 @@ from tensordict import TensorDict
 from rl4co.envs.pc.generator import FPIGenerator
 
 
-class RunningZScore:
-    def __init__(self, eps: float = 1e-6):
-        self.mean = 0.0
-        self.var = 1.0
-        self.count = 0
-        self.eps = eps
-
-    def normalize(self, value: torch.Tensor) -> torch.Tensor:
-        if self.count < 2:
-            return value
-        std = max(self.var, self.eps) ** 0.5
-        return (value - self.mean) / std
-
-    def update(self, value: torch.Tensor) -> None:
-        val = float(value.detach().mean().item())
-        self.count += 1
-        if self.count == 1:
-            self.mean = val
-            self.var = 1.0
-            return
-        delta = val - self.mean
-        self.mean += delta / self.count
-        delta2 = val - self.mean
-        # Welford-style running variance accumulator normalized by count.
-        prev_m2 = self.var * max(self.count - 2, 1)
-        m2 = prev_m2 + delta * delta2
-        self.var = m2 / max(self.count - 1, 1)
-
-
 class PartConsolidationEnv:
     """
     General-graph Part Consolidation environment.
@@ -52,24 +23,25 @@ class PartConsolidationEnv:
         generator: FPIGenerator | None = None,
         generator_params: dict | None = None,
         min_group_size_before_sep: int = 1,
+        allow_fallback: bool = False,
         device: str = "cpu",
     ):
         self.device = torch.device(device)
         self.generator = generator or FPIGenerator(**(generator_params or {}))
         self.min_group_size_before_sep = int(min_group_size_before_sep)
+        self.allow_fallback = bool(allow_fallback)
 
         self.N = self.generator.num_nodes
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
-        self._terminal_reward_stats = {
-            "infeasible_solution": RunningZScore(),
-            "num_groups": RunningZScore(),
-            "total_internal_strength": RunningZScore(),
-        }
         self._terminal_reward_weights = {
-            "infeasible_solution": -1000.0,
-            "num_groups": -50.0,
-            "total_internal_strength": 30.0,
+            "infeasible_solution": -100.0,
+            "infeasible_groups": -20.0,
+            "uncovered_parts": -30.0,
+            "duplicate_parts": -30.0,
+            "num_groups": -2.0,
+            "total_internal_strength": 1.0,
+            "feasible_pair_count": 0.5,
         }
 
     def reset(self, batch_size: int) -> TensorDict:
@@ -91,6 +63,7 @@ class PartConsolidationEnv:
                 "open_group_size": open_group_size,
                 "closed_group_count": closed_group_count,
                 "fallback_part_mask": torch.zeros((B, self.N), dtype=torch.bool, device=self.device),
+                "dead_end": torch.zeros((B, 1), dtype=torch.bool, device=self.device),
                 "done": torch.zeros((B, 1), dtype=torch.bool, device=self.device),
                 "action_mask": torch.ones((B, self.N), dtype=torch.bool, device=self.device),
             },
@@ -98,17 +71,19 @@ class PartConsolidationEnv:
         )
 
         td_out["action_mask"] = self.get_action_mask(td_out)
+        td_out["dead_end"] = self._compute_dead_end(td_out["assigned"], td_out["open_group"], td_out["action_mask"])
+        td_out["done"] = (td_out["done"] | td_out["dead_end"]).clone()
         self._reward_static_td = td_out.clone()
         return td_out
 
     def get_action_mask(self, td: TensorDict) -> torch.Tensor:
         assigned = td["assigned"]
         open_group = td["open_group"]
-        open_group_size = td["open_group_size"]
         size = td["size"]
         build_limit = td["build_limit"]
         assembly_adj = td["assembly_adj"]
         compat = td["compat"]
+        isstandard = td["isstandard"]
 
         B, N = assigned.shape
         mask = torch.zeros((B, N), dtype=torch.bool, device=assigned.device)
@@ -121,24 +96,34 @@ class PartConsolidationEnv:
         # Case 1: open group exists
         # --------------------------
         if open_any.any():
-            connected_to_group = (assembly_adj & open_group.unsqueeze(1)).any(dim=-1)
-
-            direct_open_neighbors = assembly_adj & open_group.unsqueeze(1)
-            compat_ok = (~direct_open_neighbors | compat).all(dim=-1)
-
-            projected_group_size = open_group_size.unsqueeze(1) + size
-            volume_ok = (projected_group_size <= build_limit.unsqueeze(1)).all(dim=-1)
-
-            feasible_part = (~assigned) & connected_to_group & compat_ok & volume_ok
+            feasible_part = torch.zeros((B, N), dtype=torch.bool, device=assigned.device)
             feasible_part[:, 0] = False
 
-            # fallback
-            no_adjacent_feasible = feasible_part[:, 1:].sum(dim=-1) == 0
-            if no_adjacent_feasible.any():
-                rows = torch.where(no_adjacent_feasible)[0]
-                fallback_part_mask[rows] = (~assigned[rows]) & volume_ok[rows]
-                fallback_part_mask[rows, 0] = False
-                feasible_part[rows] = fallback_part_mask[rows]
+            for b in range(B):
+                if not bool(open_any[b].item()):
+                    continue
+
+                current_group = torch.where(open_group[b])[0].tolist()
+                for node in range(1, N):
+                    if bool(assigned[b, node].item()):
+                        continue
+
+                    candidate = current_group + [node]
+                    if self._group_feasible(
+                        candidate,
+                        compat[b],
+                        size[b],
+                        build_limit[b],
+                        isstandard[b],
+                        assembly_adj[b],
+                    ):
+                        feasible_part[b, node] = True
+
+                if self.allow_fallback and not bool(feasible_part[b, 1:].any().item()):
+                    for node in range(1, N):
+                        if not bool(assigned[b, node].item()):
+                            fallback_part_mask[b, node] = True
+                    feasible_part[b] = fallback_part_mask[b]
 
             mask = feasible_part
 
@@ -153,8 +138,20 @@ class PartConsolidationEnv:
         no_open_rows = ~open_any
         if no_open_rows.any():
             rows = torch.where(no_open_rows)[0]
-            mask[rows] = ~assigned[rows]
-            mask[rows, 0] = False
+            for b in rows.tolist():
+                for node in range(1, N):
+                    if bool(assigned[b, node].item()):
+                        continue
+                    if self._group_feasible(
+                        [node],
+                        compat[b],
+                        size[b],
+                        build_limit[b],
+                        isstandard[b],
+                        assembly_adj[b],
+                    ):
+                        mask[b, node] = True
+                mask[b, 0] = False
 
         # --------------------------
         # finished cases
@@ -214,22 +211,25 @@ class PartConsolidationEnv:
                 "open_group": open_group,
                 "open_group_size": open_group_size,
                 "closed_group_count": closed_group_count,
-                "done": done,
             }
         )
 
         td2["action_mask"] = self.get_action_mask(td2)
+        dead_end = self._compute_dead_end(assigned, open_group, td2["action_mask"])
+        td2["dead_end"] = dead_end
+        td2["done"] = done | dead_end
         return td2
 
     def reward_from_actions(self, actions: torch.Tensor) -> torch.Tensor:
-        groups = self.actions_to_groups(actions, N=self.N)
-        raw = self._terminal_reward_components(groups, device=actions.device)
+        raw = self.reward_metrics_from_actions(actions)
         reward = torch.zeros_like(raw["num_groups"])
-        for name, values in raw.items():
-            reward = reward + self._terminal_reward_weights[name] * self._terminal_reward_stats[name].normalize(values)
-        for name, values in raw.items():
-            self._terminal_reward_stats[name].update(values)
+        for name, weight in self._terminal_reward_weights.items():
+            reward = reward + weight * raw[name]
         return reward
+
+    def reward_metrics_from_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
+        groups = self.actions_to_groups(actions, N=self.N)
+        return self._terminal_reward_components(groups, device=actions.device)
 
     @staticmethod
     def actions_to_groups(actions: torch.Tensor, N: int) -> list[list[list[int]]]:
@@ -264,9 +264,16 @@ class PartConsolidationEnv:
 
         td = self._reward_static_td
         B = len(groups)
+        feasible = torch.zeros((B,), dtype=torch.float32, device=device)
         infeasible_solution = torch.zeros((B,), dtype=torch.float32, device=device)
+        infeasible_groups = torch.zeros((B,), dtype=torch.float32, device=device)
+        coverage_ok = torch.zeros((B,), dtype=torch.float32, device=device)
+        uncovered_parts = torch.zeros((B,), dtype=torch.float32, device=device)
+        duplicate_parts = torch.zeros((B,), dtype=torch.float32, device=device)
+        invalid_parts = torch.zeros((B,), dtype=torch.float32, device=device)
         num_groups = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=device)
         total_internal_strength = torch.zeros((B,), dtype=torch.float32, device=device)
+        feasible_pair_count = torch.zeros((B,), dtype=torch.float32, device=device)
 
         compat = td["compat"]
         size = td["size"]
@@ -277,14 +284,31 @@ class PartConsolidationEnv:
             infeasible = False
             for group in groups_b:
                 total_internal_strength[b] += self._group_internal_strength(group, td["W"][b])
+                feasible_pair_count[b] += self._group_feasible_pair_count(group, compat[b])
                 if not self._group_feasible(group, compat[b], size[b], build_limit[b], isstandard[b], td["assembly_adj"][b]):
                     infeasible = True
+                    infeasible_groups[b] += 1.0
+            coverage = self._coverage_report(groups_b, num_parts=self.generator.num_parts, device=device)
+            coverage_ok[b] = coverage["coverage_ok"]
+            uncovered_parts[b] = coverage["uncovered_parts"]
+            duplicate_parts[b] = coverage["duplicate_parts"]
+            invalid_parts[b] = coverage["invalid_parts"]
+            if not bool(coverage["coverage_ok"].item()):
+                infeasible = True
             infeasible_solution[b] = float(infeasible)
+            feasible[b] = float(not infeasible)
 
         return {
+            "feasible": feasible,
             "infeasible_solution": infeasible_solution,
+            "infeasible_groups": infeasible_groups,
+            "coverage_ok": coverage_ok,
+            "uncovered_parts": uncovered_parts,
+            "duplicate_parts": duplicate_parts,
+            "invalid_parts": invalid_parts,
             "num_groups": num_groups,
             "total_internal_strength": total_internal_strength,
+            "feasible_pair_count": feasible_pair_count,
         }
 
     def _group_internal_strength(self, group: list[int], w: torch.Tensor) -> torch.Tensor:
@@ -293,6 +317,50 @@ class PartConsolidationEnv:
             for j in range(i + 1, len(group)):
                 total = total + w[group[i], group[j]]
         return total
+
+    def _group_feasible_pair_count(self, group: list[int], compat: torch.Tensor) -> torch.Tensor:
+        count = torch.tensor(0.0, device=compat.device)
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                count = count + float(bool(compat[group[i], group[j]].item()))
+        return count
+
+    def _compute_dead_end(
+        self,
+        assigned: torch.Tensor,
+        open_group: torch.Tensor,
+        action_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        all_assigned = assigned[:, 1:].all(dim=-1, keepdim=True)
+        has_open = open_group.any(dim=-1, keepdim=True)
+        has_valid_action = action_mask.any(dim=-1, keepdim=True)
+        return (~all_assigned) & (~has_open) & (~has_valid_action)
+
+    def _coverage_report(self, groups: list[list[int]], num_parts: int, device: torch.device) -> dict[str, torch.Tensor]:
+        seen = torch.zeros((num_parts,), dtype=torch.long, device=device)
+        invalid_parts = 0
+
+        for group in groups:
+            for node in group:
+                part_idx = int(node) - 1
+                if 0 <= part_idx < num_parts:
+                    seen[part_idx] += 1
+                else:
+                    invalid_parts += 1
+
+        uncovered_parts = (seen == 0).sum().float()
+        duplicate_parts = torch.clamp(seen - 1, min=0).sum().float()
+        coverage_ok = torch.tensor(
+            float(uncovered_parts.item() == 0.0 and duplicate_parts.item() == 0.0 and invalid_parts == 0),
+            dtype=torch.float32,
+            device=device,
+        )
+        return {
+            "coverage_ok": coverage_ok,
+            "uncovered_parts": uncovered_parts,
+            "duplicate_parts": duplicate_parts,
+            "invalid_parts": torch.tensor(float(invalid_parts), dtype=torch.float32, device=device),
+        }
 
     def _group_feasible(
         self,
@@ -305,7 +373,7 @@ class PartConsolidationEnv:
     ) -> bool:
         if not group:
             return True
-        if isstandard[group].bool().any():
+        if len(group) >= 2 and isstandard[group].bool().any():
             return False
         if not torch.all(size[group].sum(dim=0) <= build_limit):
             return False
