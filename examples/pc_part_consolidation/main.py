@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import csv
 from collections import defaultdict
+import random
 import sys
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -23,6 +24,121 @@ from rl4co.envs.pc.generator import FPIGenerator
 from rl4co.models.zoo.pc.cpccd_solver import CPCCDSolver
 from rl4co.models.zoo.pc.ga_solver import GASolver
 from rl4co.models.zoo.pc.policy import PCPolicy
+
+
+def _topology_name(topology_id):
+    names = [
+        "chain",
+        "star",
+        "tree",
+        "two_module_bridge",
+        "dense_clustered",
+        "sparse_random",
+    ]
+    if topology_id is None:
+        return None
+    topology_id = int(topology_id)
+    if 0 <= topology_id < len(names):
+        return names[topology_id]
+    return f"topology_{topology_id}"
+
+
+def visualize_grouping_solution(inst, groups, method, output_path, metrics=None):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import networkx as nx
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    n = int(inst["num_parts"])
+    adj = inst["assembly_adj"]
+    w = inst["W"]
+    isstandard = inst["isstandard"]
+
+    graph = nx.Graph()
+    graph.add_nodes_from(range(n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if bool(adj[i, j]):
+                graph.add_edge(i, j, weight=float(w[i, j]))
+
+    node_to_group = {}
+    for gid, group in enumerate(groups):
+        for node in group:
+            node_to_group[int(node)] = gid
+
+    palette = plt.cm.get_cmap("tab10", max(len(groups), 1) + 1)
+    node_colors = []
+    border_colors = []
+    labels = {}
+    for node in range(n):
+        gid = node_to_group.get(node, -1)
+        node_colors.append(palette(gid % palette.N) if gid >= 0 else (0.75, 0.75, 0.75, 1.0))
+        border_colors.append("crimson" if bool(isstandard[node]) else "black")
+        labels[node] = f"{node}" + ("S" if bool(isstandard[node]) else "")
+
+    intra_edges = []
+    inter_edges = []
+    for u, v in graph.edges():
+        same_group = node_to_group.get(u, -1) >= 0 and node_to_group.get(u, -1) == node_to_group.get(v, -2)
+        if same_group:
+            intra_edges.append((u, v))
+        else:
+            inter_edges.append((u, v))
+
+    if graph.number_of_edges() > 0:
+        pos = nx.spring_layout(graph, seed=7)
+    else:
+        pos = {
+            node: (np.cos(2 * np.pi * node / max(n, 1)), np.sin(2 * np.pi * node / max(n, 1)))
+            for node in range(n)
+        }
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    nx.draw_networkx_edges(graph, pos, edgelist=inter_edges, edge_color="#bdbdbd", width=1.3, alpha=0.85, ax=ax)
+    nx.draw_networkx_edges(graph, pos, edgelist=intra_edges, edge_color="#1b7f5f", width=2.7, alpha=0.95, ax=ax)
+    nx.draw_networkx_nodes(
+        graph,
+        pos,
+        node_color=node_colors,
+        edgecolors=border_colors,
+        linewidths=2.0,
+        node_size=900,
+        ax=ax,
+    )
+    nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10, font_weight="bold", ax=ax)
+    nx.draw_networkx_edge_labels(
+        graph,
+        pos,
+        edge_labels={(u, v): f"{graph[u][v]['weight']:.2f}" for u, v in graph.edges()},
+        font_size=8,
+        ax=ax,
+    )
+
+    title_lines = [f"{method} | num_parts={n}"]
+    topo = _topology_name(inst.get("topology_id"))
+    if topo is not None:
+        title_lines[0] += f" | topology={topo}"
+    title_lines.append(f"groups={len(groups)} | grouping={groups}")
+    if metrics is not None:
+        title_lines.append(
+            " | ".join(
+                [
+                    f"feasible={int(metrics['feasible'])}",
+                    f"infeasible_solution={int(metrics['infeasible_solution'])}",
+                    f"infeasible_groups={int(metrics['infeasible_groups'])}",
+                    f"strength={metrics['total_internal_strength']:.2f}",
+                    f"pairs={metrics['feasible_pair_count']:.2f}",
+                ]
+            )
+        )
+    ax.set_title("\n".join(title_lines), fontsize=11)
+    ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
+    plt.close(fig)
 
 
 def actions_to_groups(actions):
@@ -72,22 +188,24 @@ def evaluate(groups):
 
 
 def td_to_inst(td, num_parts):
+    actual_num_parts = int(td.get("num_parts", torch.tensor([num_parts]))[0].item())
     return {
-        "num_parts": int(num_parts),
-        "material": td["material"][0, 1:].cpu().numpy(),
-        "size": td["size"][0, 1:].cpu().numpy(),
-        "maintfreq": td["maintfreq"][0, 1:].cpu().numpy(),
-        "isstandard": td["isstandard"][0, 1:].cpu().numpy(),
-        "material_available": (td["material"][0, 1:] >= 0).cpu().numpy(),
+        "num_parts": actual_num_parts,
+        "topology_id": int(td.get("topology_id", torch.tensor([-1]))[0].item()),
+        "material": td["material"][0, 1 : actual_num_parts + 1].cpu().numpy(),
+        "size": td["size"][0, 1 : actual_num_parts + 1].cpu().numpy(),
+        "maintfreq": td["maintfreq"][0, 1 : actual_num_parts + 1].cpu().numpy(),
+        "isstandard": td["isstandard"][0, 1 : actual_num_parts + 1].cpu().numpy(),
+        "material_available": (td["material"][0, 1 : actual_num_parts + 1] >= 0).cpu().numpy(),
         "build_limit": td["build_limit"][0].cpu().numpy(),
-        "assembly_adj": td["assembly_adj"][0, 1:, 1:].cpu().numpy(),
-        "mat_var": td["mat_var"][0, 1:, 1:].cpu().numpy(),
-        "stack_size": td["stack_size"][0, 1:, 1:, :].cpu().numpy(),
-        "maint_diff": td["maint_diff"][0, 1:, 1:].cpu().numpy(),
-        "rel_motion": td["rel_motion"][0, 1:, 1:].cpu().numpy(),
-        "compat": td["compat"][0, 1:, 1:].cpu().numpy(),
-        "W": td["W"][0, 1:, 1:].cpu().numpy(),
-        "relation_valid": td["relation_valid"][0, 1:, 1:].cpu().numpy(),
+        "assembly_adj": td["assembly_adj"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "mat_var": td["mat_var"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "stack_size": td["stack_size"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1, :].cpu().numpy(),
+        "maint_diff": td["maint_diff"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "rel_motion": td["rel_motion"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "compat": td["compat"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "W": td["W"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
+        "relation_valid": td["relation_valid"][0, 1 : actual_num_parts + 1, 1 : actual_num_parts + 1].cpu().numpy(),
         "relation_consistent": bool(td["relation_consistent"][0].item()),
     }
 
@@ -254,6 +372,7 @@ def result_row(instance_type, instance_id, method, groups, elapsed, metrics):
     return {
         "instance_type": instance_type,
         "instance_id": instance_id,
+        "num_parts": int(metrics.get("num_parts", 0)),
         "method": method,
         "groups": group_count,
         "num_groups": group_count,
@@ -280,6 +399,7 @@ def summarize_result_rows(rows, label):
 
 def run_fixed(env, policy):
     inst = create_fixed_instance(num_parts=env.generator.num_parts)
+    inst["num_parts"] = int(env.generator.num_parts)
     print_instance(inst, "FIXED INSTANCE USED IN THE EXPERIMENT")
     td = inst_to_td(inst, env)
 
@@ -294,6 +414,13 @@ def run_fixed(env, policy):
     m1 = evaluate_groups(g1, inst)
     m2 = evaluate_groups(g2, inst)
     m3 = evaluate_groups(g3, inst)
+    m1["num_parts"] = inst["num_parts"]
+    m2["num_parts"] = inst["num_parts"]
+    m3["num_parts"] = inst["num_parts"]
+
+    visualize_grouping_solution(inst, g1, "CPCCD", Path("visualizations") / "fixed" / "cpccd.png", m1)
+    visualize_grouping_solution(inst, g2, "GA", Path("visualizations") / "fixed" / "ga.png", m2)
+    visualize_grouping_solution(inst, g3, "NCO", Path("visualizations") / "fixed" / "nco.png", m3)
 
     return inst, [
         result_row("fixed", 0, "CPCCD", g1, t1, m1),
@@ -302,27 +429,55 @@ def run_fixed(env, policy):
     ]
 
 
-def run_generalization(env, policy, num_instances=30):
+def _clone_env_with_num_parts(env, num_parts: int):
+    generator_params = vars(env.generator.p).copy()
+    generator_params["num_parts"] = int(num_parts)
+    generator = FPIGenerator(**generator_params)
+    return PartConsolidationEnv(
+        generator=generator,
+        min_group_size_before_sep=env.min_group_size_before_sep,
+        allow_fallback=env.allow_fallback,
+        device=str(env.device),
+    )
+
+
+def run_generalization(env, policy, num_instances=30, min_parts=4, max_parts=10, seed=123):
     results = []
     cpccd = CPCCDSolver()
     ga = GASolver()
     plot_dir = Path("ga_fitness_generalization")
     plot_dir.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(seed)
 
     for i in range(num_instances):
-        td = env.reset(batch_size=1)
-        inst = td_to_inst(td, env.generator.num_parts)
+        sampled_num_parts = rng.randint(min_parts, max_parts)
+        env_i = _clone_env_with_num_parts(env, sampled_num_parts)
+        td = env_i.reset(batch_size=1)
+        inst = td_to_inst(td, env_i.generator.num_parts)
+        inst["num_parts"] = int(env_i.generator.num_parts)
 
         g1, t1 = cpccd.solve(inst)
         g2, t2 = ga.solve(inst)
         ga.plot_fitness_history(str(plot_dir / f"ga_fitness_instance_{i}.png"))
-        g3, t3 = run_nco(env, policy, td)
+        g3, t3 = run_nco(env_i, policy, td)
 
-        results.append(result_row("generalization", i, "CPCCD", g1, t1, evaluate_groups(g1, inst)))
-        results.append(result_row("generalization", i, "GA", g2, t2, evaluate_groups(g2, inst)))
-        results.append(result_row("generalization", i, "NCO", g3, t3, evaluate_groups(g3, inst)))
+        m1 = evaluate_groups(g1, inst)
+        m1["num_parts"] = inst["num_parts"]
+        m2 = evaluate_groups(g2, inst)
+        m2["num_parts"] = inst["num_parts"]
+        m3 = evaluate_groups(g3, inst)
+        m3["num_parts"] = inst["num_parts"]
 
-        print(f"[generalization {i + 1}/{num_instances}] done")
+        vis_dir = Path("visualizations") / "generalization" / f"instance_{i:03d}"
+        visualize_grouping_solution(inst, g1, "CPCCD", vis_dir / "cpccd.png", m1)
+        visualize_grouping_solution(inst, g2, "GA", vis_dir / "ga.png", m2)
+        visualize_grouping_solution(inst, g3, "NCO", vis_dir / "nco.png", m3)
+
+        results.append(result_row("generalization", i, "CPCCD", g1, t1, m1))
+        results.append(result_row("generalization", i, "GA", g2, t2, m2))
+        results.append(result_row("generalization", i, "NCO", g3, t3, m3))
+
+        print(f"[generalization {i + 1}/{num_instances}] done | num_parts={sampled_num_parts}")
 
     return results
 
@@ -340,6 +495,7 @@ def save_results(results, filename):
         writer.writerow([
             "instance_type",
             "instance_id",
+            "num_parts",
             "method",
             "grouping",
             "groups",
@@ -355,6 +511,7 @@ def save_results(results, filename):
             writer.writerow([
                 row["instance_type"],
                 row["instance_id"],
+                row.get("num_parts", ""),
                 row["method"],
                 row["grouping"],
                 row["groups"],
@@ -504,7 +661,7 @@ def main():
         print(row)
 
     print("\n===== GENERALIZATION EXPERIMENT =====")
-    gen_results = run_generalization(env, policy, num_instances=30)
+    gen_results = run_generalization(env, policy, num_instances=100)
     df_gen, summary_gen = save_results(gen_results, "generalization_results.csv")
     for row in summary_gen:
         print(row)

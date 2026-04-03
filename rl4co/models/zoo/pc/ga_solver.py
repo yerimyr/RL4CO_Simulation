@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import copy
 import random
 import time
 
 import numpy as np
+from deap import base
+from deap import creator
+from deap import tools
 
 from rl4co.envs.pc.evaluator import DEFAULT_SCORE_WEIGHTS
 from rl4co.envs.pc.evaluator import evaluate_groups
@@ -27,6 +31,8 @@ class GASolver:
         elite_size: int = 2,
         tournament_size: int = 3,
         mutation_rate: float = 0.85,
+        init_new_group_bias: float = 0.35,
+        enable_post_merge_repair: bool = False,
         seed: int | None = None,
     ):
         self.pop_size = int(pop_size)
@@ -34,6 +40,8 @@ class GASolver:
         self.elite_size = int(elite_size)
         self.tournament_size = int(tournament_size)
         self.mutation_rate = float(mutation_rate)
+        self.init_new_group_bias = float(init_new_group_bias)
+        self.enable_post_merge_repair = bool(enable_post_merge_repair)
         self.rng = random.Random(seed)
         self.last_best_score: float | None = None
         self.last_generation_best_scores: list[float] = []
@@ -45,37 +53,46 @@ class GASolver:
     def solve(self, inst):
         start = time.time()
         n = int(inst["num_parts"])
+        toolbox = self._build_toolbox(inst, n)
+        pop = toolbox.population(n=self.pop_size)
+        self._evaluate_invalid(pop, toolbox)
 
-        pop = [self._random_solution(inst) for _ in range(self.pop_size)]
-        scores = self._population_scores(pop, inst)
-        raw_scores = [self._fitness(sol, inst) for sol in pop]
+        scores = self._population_scores([self._as_array(ind) for ind in pop], inst)
+        raw_scores = [float(ind.fitness.values[0]) for ind in pop]
 
         best_idx = int(np.argmax(scores))
-        best_sol = pop[best_idx].copy()
+        best_sol = self._as_array(pop[best_idx]).copy()
         best_score = float(scores[best_idx])
         self.last_generation_best_scores = [best_score]
         self.last_generation_mean_scores = [float(np.mean(scores))]
         self.last_generation_best_raw_scores = [float(np.max(raw_scores))]
         self.last_generation_mean_raw_scores = [float(np.mean(raw_scores))]
 
+        cxpb = 0.9
         for _ in range(self.generations):
-            ranked = sorted(zip(scores, pop), key=lambda x: x[0], reverse=True)
-            new_pop = [sol.copy() for _, sol in ranked[: self.elite_size]]
+            elites = [toolbox.clone(ind) for ind in tools.selBest(pop, self.elite_size)]
+            offspring = tools.selTournament(pop, self.pop_size - self.elite_size, tournsize=self.tournament_size)
+            offspring = [toolbox.clone(ind) for ind in offspring]
 
-            while len(new_pop) < self.pop_size:
-                p1 = self._select(pop, scores).copy()
-                p2 = self._select(pop, scores).copy()
+            for i in range(0, len(offspring) - 1, 2):
+                if self.rng.random() < cxpb:
+                    toolbox.mate(offspring[i], offspring[i + 1])
+                    if offspring[i].fitness.valid:
+                        del offspring[i].fitness.values
+                    if offspring[i + 1].fitness.valid:
+                        del offspring[i + 1].fitness.values
 
-                child = self._crossover(p1, p2, n)
-                child = self._repair(child, inst)
-                child = self._mutate(child, inst)
-                child = self._repair(child, inst)
+            for ind in offspring:
+                if self.rng.random() < self.mutation_rate:
+                    toolbox.mutate(ind)
+                    if ind.fitness.valid:
+                        del ind.fitness.values
 
-                new_pop.append(child)
+            self._evaluate_invalid(offspring, toolbox)
+            pop = elites + offspring
 
-            pop = new_pop
-            scores = self._population_scores(pop, inst)
-            raw_scores = [self._fitness(sol, inst) for sol in pop]
+            scores = self._population_scores([self._as_array(ind) for ind in pop], inst)
+            raw_scores = [float(ind.fitness.values[0]) for ind in pop]
 
             gen_best_idx = int(np.argmax(scores))
             gen_best_score = float(scores[gen_best_idx])
@@ -85,11 +102,55 @@ class GASolver:
             self.last_generation_mean_raw_scores.append(float(np.mean(raw_scores)))
             if gen_best_score > best_score:
                 best_score = gen_best_score
-                best_sol = pop[gen_best_idx].copy()
+                best_sol = self._as_array(pop[gen_best_idx]).copy()
 
         self.last_best_score = best_score
         end = time.time()
         return self._decode(best_sol), end - start
+
+    def _build_toolbox(self, inst, n: int) -> base.Toolbox:
+        if not hasattr(creator, "PCFitnessMax"):
+            creator.create("PCFitnessMax", base.Fitness, weights=(1.0,))
+        if not hasattr(creator, "PCIndividual"):
+            creator.create("PCIndividual", list, fitness=creator.PCFitnessMax)
+
+        toolbox = base.Toolbox()
+        toolbox.register("individual", self._make_individual, inst, n)
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+        toolbox.register("evaluate", self._evaluate_individual, inst=inst)
+        toolbox.register("mate", self._mate_individuals, n=n, inst=inst)
+        toolbox.register("mutate", self._mutate_individual, inst=inst)
+        toolbox.register("clone", copy.deepcopy)
+        return toolbox
+
+    def _make_individual(self, inst, n: int):
+        sol = self._random_solution(inst)
+        return creator.PCIndividual(sol.tolist())
+
+    def _evaluate_invalid(self, pop, toolbox) -> None:
+        invalid = [ind for ind in pop if not ind.fitness.valid]
+        for ind, fit in zip(invalid, map(toolbox.evaluate, invalid)):
+            ind.fitness.values = fit
+
+    def _evaluate_individual(self, ind, inst):
+        return (self._fitness(self._as_array(ind), inst),)
+
+    def _mate_individuals(self, ind1, ind2, n: int, inst):
+        child1 = self._repair(self._crossover(self._as_array(ind1), self._as_array(ind2), n), inst)
+        child2 = self._repair(self._crossover(self._as_array(ind2), self._as_array(ind1), n), inst)
+        ind1[:] = child1.tolist()
+        ind2[:] = child2.tolist()
+        return ind1, ind2
+
+    def _mutate_individual(self, ind, inst):
+        child = self._repair(self._mutate(self._as_array(ind), inst), inst)
+        ind[:] = child.tolist()
+        return (ind,)
+
+    def _as_array(self, sol) -> np.ndarray:
+        if isinstance(sol, np.ndarray):
+            return sol.astype(int, copy=True)
+        return np.asarray(list(sol), dtype=int)
 
     def plot_fitness_history(self, save_path: str = "ga_fitness_history.png", show: bool = False) -> str:
         if not self.last_generation_best_scores:
@@ -135,17 +196,22 @@ class GASolver:
 
         groups: list[list[int]] = []
         for node in order:
-            placed = False
-            candidate_groups = list(range(len(groups)))
-            self.rng.shuffle(candidate_groups)
-            for idx in candidate_groups:
+            feasible_targets = []
+            for idx in range(len(groups)):
                 trial = sorted(groups[idx] + [node])
                 if self._group_feasible(trial, inst):
-                    groups[idx].append(node)
-                    placed = True
-                    break
-            if not placed:
+                    feasible_targets.append(idx)
+
+            create_new_group = (
+                not feasible_targets
+                or self.rng.random() < self.init_new_group_bias
+            )
+            if create_new_group:
                 groups.append([node])
+                continue
+
+            target_idx = self.rng.choice(feasible_targets)
+            groups[target_idx].append(node)
 
         return self._encode(groups, n)
 
@@ -219,10 +285,6 @@ class GASolver:
                 next_gid += 1
             out[i] = mapping[gid]
         return out
-
-    def _select(self, pop, scores) -> np.ndarray:
-        idx = np.random.choice(len(pop), self.tournament_size, replace=False)
-        return pop[max(idx, key=lambda i: scores[i])]
 
     def _crossover(self, p1: np.ndarray, p2: np.ndarray, n: int) -> np.ndarray:
         child = p1.copy()
@@ -320,26 +382,28 @@ class GASolver:
                     repaired.extend([[node] for node in pending])
                     pending.clear()
 
-        # Greedy post-merge to reduce group count if feasible.
-        improved = True
-        while improved:
-            improved = False
-            best_pair = None
-            best_gain = float("-inf")
-            for i in range(len(repaired)):
-                for j in range(i + 1, len(repaired)):
-                    merged = sorted(repaired[i] + repaired[j])
-                    if not self._group_feasible(merged, inst):
-                        continue
-                    gain = self._internal_weight(merged, np.asarray(inst["W"], dtype=float))
-                    if gain > best_gain:
-                        best_gain = gain
-                        best_pair = (i, j)
-            if best_pair is not None:
-                i, j = best_pair
-                repaired[i] = sorted(repaired[i] + repaired[j])
-                repaired.pop(j)
-                improved = True
+        # Keep repair focused on feasibility recovery. Optional post-merge can be
+        # enabled explicitly, but defaults off to preserve population diversity.
+        if self.enable_post_merge_repair:
+            improved = True
+            while improved:
+                improved = False
+                best_pair = None
+                best_gain = float("-inf")
+                for i in range(len(repaired)):
+                    for j in range(i + 1, len(repaired)):
+                        merged = sorted(repaired[i] + repaired[j])
+                        if not self._group_feasible(merged, inst):
+                            continue
+                        gain = self._internal_weight(merged, np.asarray(inst["W"], dtype=float))
+                        if gain > best_gain:
+                            best_gain = gain
+                            best_pair = (i, j)
+                if best_pair is not None:
+                    i, j = best_pair
+                    repaired[i] = sorted(repaired[i] + repaired[j])
+                    repaired.pop(j)
+                    improved = True
 
         return self._encode(repaired, len(sol))
 
@@ -355,8 +419,6 @@ class GASolver:
         return total
 
     def _node_feasible(self, node: int, inst) -> bool:
-        if "isstandard" in inst and np.asarray(inst["isstandard"])[node]:
-            return False
         if "material_available" in inst and not np.asarray(inst["material_available"])[node]:
             return False
 
@@ -390,6 +452,8 @@ class GASolver:
     def _group_feasible(self, group: list[int], inst) -> bool:
         compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
         if any(not self._node_feasible(node, inst) for node in group):
+            return False
+        if len(group) >= 2 and "isstandard" in inst and np.asarray(inst["isstandard"])[group].any():
             return False
         if not self._group_size_ok(group, inst):
             return False

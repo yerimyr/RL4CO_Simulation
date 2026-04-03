@@ -65,7 +65,7 @@ def main():
     # Hyperparameters
     # =========================
     batch_size = 32
-    epochs = 3000
+    epochs = 500
     lr = 1e-4
     entropy_coef = 0.05
     grad_clip = 1.0
@@ -97,7 +97,8 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=20,
+        num_parts=4,
+        max_num_parts=10,
         material_types=3,
         p_relative_motion=0.05,
         p_extra_edge=0.30,
@@ -212,7 +213,7 @@ def main():
         if ep % 10 == 0:
             policy.eval()
             with torch.no_grad():
-                td_eval = env.reset(batch_size=256).to(device)
+                td_eval = env.reset(batch_size=64).to(device)
                 actions_eval, _, _, reward_eval, _, _ = rollout_episode_from_td(
                     env=env,
                     policy=policy,

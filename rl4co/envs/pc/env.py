@@ -35,19 +35,18 @@ class PartConsolidationEnv:
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
         self._terminal_reward_weights = {
-            "infeasible_solution": -100.0,
-            "infeasible_groups": -20.0,
             "num_groups": -2.0,
             "total_internal_strength": 1.0,
-            "feasible_pair_count": 0.5,
         }
 
     def reset(self, batch_size: int) -> TensorDict:
         td = self.generator(batch_size=batch_size, device=self.device)
         B = batch_size
+        valid_part_mask = td.get("valid_part_mask", torch.ones((B, self.N), dtype=torch.bool, device=self.device))
 
         assigned = torch.zeros((B, self.N), dtype=torch.bool, device=self.device)
         assigned[:, 0] = True
+        assigned = assigned | (~valid_part_mask)
 
         open_group = torch.zeros((B, self.N), dtype=torch.bool, device=self.device)
         open_group_size = torch.zeros((B, 3), dtype=torch.float32, device=self.device)
@@ -82,13 +81,15 @@ class PartConsolidationEnv:
         assembly_adj = td["assembly_adj"]
         compat = td["compat"]
         isstandard = td["isstandard"]
+        valid_part_mask = td.get("valid_part_mask", torch.ones_like(assigned))
 
         B, N = assigned.shape
         mask = torch.zeros((B, N), dtype=torch.bool, device=assigned.device)
         fallback_part_mask = torch.zeros((B, N), dtype=torch.bool, device=assigned.device)
 
         open_any = open_group.any(dim=-1)
-        all_assigned = assigned[:, 1:].all(dim=-1)
+        real_valid = valid_part_mask[:, 1:]
+        all_assigned = (assigned[:, 1:] | (~real_valid)).all(dim=-1)
 
         # --------------------------
         # Case 1: open group exists
@@ -103,6 +104,8 @@ class PartConsolidationEnv:
 
                 current_group = torch.where(open_group[b])[0].tolist()
                 for node in range(1, N):
+                    if not bool(valid_part_mask[b, node].item()):
+                        continue
                     if bool(assigned[b, node].item()):
                         continue
 
@@ -119,6 +122,8 @@ class PartConsolidationEnv:
 
                 if self.allow_fallback and not bool(feasible_part[b, 1:].any().item()):
                     for node in range(1, N):
+                        if not bool(valid_part_mask[b, node].item()):
+                            continue
                         if not bool(assigned[b, node].item()):
                             fallback_part_mask[b, node] = True
                     feasible_part[b] = fallback_part_mask[b]
@@ -138,6 +143,8 @@ class PartConsolidationEnv:
             rows = torch.where(no_open_rows)[0]
             for b in rows.tolist():
                 for node in range(1, N):
+                    if not bool(valid_part_mask[b, node].item()):
+                        continue
                     if bool(assigned[b, node].item()):
                         continue
                     if self._group_feasible(
@@ -178,6 +185,7 @@ class PartConsolidationEnv:
         open_group_size = td["open_group_size"].clone()
         closed_group_count = td["closed_group_count"].clone()
         size = td["size"]
+        valid_part_mask = td.get("valid_part_mask", torch.ones_like(assigned))
 
         is_sep = action.eq(0)
         is_part = ~is_sep
@@ -198,7 +206,7 @@ class PartConsolidationEnv:
             open_group[rows, idx] = True
             open_group_size[rows] += size[rows, idx, :]
 
-        all_assigned = assigned[:, 1:].all(dim=-1)
+        all_assigned = (assigned[:, 1:] | (~valid_part_mask[:, 1:])).all(dim=-1)
         open_empty = ~open_group.any(dim=-1)
         done = (all_assigned & open_empty).view(B, 1)
 
