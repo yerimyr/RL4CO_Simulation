@@ -240,6 +240,7 @@ class FPIGenerator:
 
         topology_id = torch.zeros((B,), dtype=torch.long, device=device)
         num_parts = torch.zeros((B,), dtype=torch.long, device=device)
+        material_type_count = torch.ones((B,), dtype=torch.long, device=device)
         valid_part_mask = torch.zeros((B, N + 1), dtype=torch.bool, device=device)
         valid_part_mask[:, 0] = True
 
@@ -255,7 +256,9 @@ class FPIGenerator:
             valid_part_mask[b, 1 : n + 1] = True
 
             eye = torch.eye(n, dtype=torch.bool, device=device)
-            material = torch.randint(0, self.p.material_types, (n,), device=device)
+            sampled_material_types = int(torch.randint(1, self.p.material_types + 1, (1,), device=device).item())
+            material_type_count[b] = sampled_material_types
+            material = torch.randint(0, sampled_material_types, (n,), device=device)
 
             L = torch.rand((n,), device=device) * (self.p.L_high - self.p.L_low) + self.p.L_low
             Wd = torch.rand((n,), device=device) * (self.p.W_high - self.p.W_low) + self.p.W_low
@@ -342,6 +345,7 @@ class FPIGenerator:
                 "edge_features": edge_features,
                 "topology_id": topology_id,
                 "num_parts": num_parts,
+                "material_type_count": material_type_count,
                 "valid_part_mask": valid_part_mask,
                 "material": material_all,
                 "size": size_all,

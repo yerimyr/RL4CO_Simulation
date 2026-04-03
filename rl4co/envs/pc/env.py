@@ -229,8 +229,17 @@ class PartConsolidationEnv:
     def reward_from_actions(self, actions: torch.Tensor) -> torch.Tensor:
         raw = self.reward_metrics_from_actions(actions)
         reward = torch.zeros_like(raw["num_groups"])
+        if self._reward_static_td is None:
+            raise RuntimeError("reward_from_actions called before env.reset")
+        num_parts = self._reward_static_td.get(
+            "num_parts",
+            torch.full_like(raw["num_groups"], self.N - 1, dtype=torch.float32, device=raw["num_groups"].device),
+        ).to(raw["num_groups"].device, dtype=torch.float32)
         for name, weight in self._terminal_reward_weights.items():
-            reward = reward + weight * raw[name]
+            value = raw[name]
+            if name == "num_groups":
+                value = value / torch.clamp(num_parts, min=1.0)
+            reward = reward + weight * value
         return reward
 
     def reward_metrics_from_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:

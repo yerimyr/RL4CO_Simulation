@@ -662,7 +662,7 @@ def main():
         print(row)
 
     print("\n===== GENERALIZATION EXPERIMENT =====")
-    gen_results = run_generalization(env, policy, num_instances=100)
+    gen_results = run_generalization(env, policy, num_instances=300)
     df_gen, summary_gen = save_results(gen_results, "generalization_results.csv")
     for row in summary_gen:
         print(row)
