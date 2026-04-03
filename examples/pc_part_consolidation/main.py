@@ -4,6 +4,7 @@ import csv
 from collections import defaultdict
 import random
 import sys
+import numpy as np
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
