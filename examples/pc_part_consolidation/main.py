@@ -1,4 +1,5 @@
 import os
+import argparse
 from pathlib import Path
 import csv
 from collections import defaultdict
@@ -368,13 +369,14 @@ def np_round(arr, decimals=3):
     return np.round(arr, decimals=decimals)
 
 
-def result_row(instance_type, instance_id, method, groups, elapsed, metrics):
+def result_row(instance_type, instance_id, method, groups, elapsed, metrics, seed=None):
     group_count = evaluate(groups)
     return {
         "instance_type": instance_type,
         "instance_id": instance_id,
         "num_parts": int(metrics.get("num_parts", 0)),
         "method": method,
+        "seed": "" if seed is None else int(seed),
         "groups": group_count,
         "num_groups": group_count,
         "time": float(elapsed),
@@ -398,7 +400,7 @@ def summarize_result_rows(rows, label):
     return scored_rows, summary
 
 
-def run_fixed(env, policy):
+def run_fixed(env, policies):
     inst = create_fixed_instance(num_parts=env.generator.num_parts)
     inst["num_parts"] = int(env.generator.num_parts)
     print_instance(inst, "FIXED INSTANCE USED IN THE EXPERIMENT")
@@ -410,29 +412,30 @@ def run_fixed(env, policy):
     g1, t1 = cpccd.solve(inst)
     g2, t2 = ga.solve(inst)
     ga.plot_fitness_history("ga_fitness_fixed.png")
-    g3, t3 = run_nco(env, policy, td)
-
     m1 = evaluate_groups(g1, inst)
     m2 = evaluate_groups(g2, inst)
-    m3 = evaluate_groups(g3, inst)
     m1["num_parts"] = inst["num_parts"]
     m2["num_parts"] = inst["num_parts"]
-    m3["num_parts"] = inst["num_parts"]
 
     visualize_grouping_solution(inst, g1, "CPCCD", Path("visualizations") / "fixed" / "cpccd.png", m1)
     visualize_grouping_solution(inst, g2, "GA", Path("visualizations") / "fixed" / "ga.png", m2)
-    visualize_grouping_solution(inst, g3, "NCO", Path("visualizations") / "fixed" / "nco.png", m3)
-
-    return inst, [
+    rows = [
         result_row("fixed", 0, "CPCCD", g1, t1, m1),
         result_row("fixed", 0, "GA", g2, t2, m2),
-        result_row("fixed", 0, "NCO", g3, t3, m3),
     ]
+    for seed, policy in policies:
+        g3, t3 = run_nco(env, policy, td)
+        m3 = evaluate_groups(g3, inst)
+        m3["num_parts"] = inst["num_parts"]
+        visualize_grouping_solution(inst, g3, f"NCO(seed={seed})", Path("visualizations") / "fixed" / f"nco_seed{seed}.png", m3)
+        rows.append(result_row("fixed", 0, "NCO", g3, t3, m3, seed=seed))
+    return inst, rows
 
 
 def _clone_env_with_num_parts(env, num_parts: int):
     generator_params = vars(env.generator.p).copy()
     generator_params["num_parts"] = int(num_parts)
+    generator_params["max_num_parts"] = int(num_parts)
     generator = FPIGenerator(**generator_params)
     return PartConsolidationEnv(
         generator=generator,
@@ -442,7 +445,7 @@ def _clone_env_with_num_parts(env, num_parts: int):
     )
 
 
-def run_generalization(env, policy, num_instances=30, min_parts=4, max_parts=10, seed=123):
+def run_generalization(env, policies, num_instances=30, min_parts=4, max_parts=10, seed=123):
     results = []
     cpccd = CPCCDSolver()
     ga = GASolver()
@@ -455,28 +458,27 @@ def run_generalization(env, policy, num_instances=30, min_parts=4, max_parts=10,
         env_i = _clone_env_with_num_parts(env, sampled_num_parts)
         td = env_i.reset(batch_size=1)
         inst = td_to_inst(td, env_i.generator.num_parts)
-        inst["num_parts"] = int(env_i.generator.num_parts)
 
         g1, t1 = cpccd.solve(inst)
         g2, t2 = ga.solve(inst)
         ga.plot_fitness_history(str(plot_dir / f"ga_fitness_instance_{i}.png"))
-        g3, t3 = run_nco(env_i, policy, td)
-
         m1 = evaluate_groups(g1, inst)
         m1["num_parts"] = inst["num_parts"]
         m2 = evaluate_groups(g2, inst)
         m2["num_parts"] = inst["num_parts"]
-        m3 = evaluate_groups(g3, inst)
-        m3["num_parts"] = inst["num_parts"]
 
         vis_dir = Path("visualizations") / "generalization" / f"instance_{i:03d}"
         visualize_grouping_solution(inst, g1, "CPCCD", vis_dir / "cpccd.png", m1)
         visualize_grouping_solution(inst, g2, "GA", vis_dir / "ga.png", m2)
-        visualize_grouping_solution(inst, g3, "NCO", vis_dir / "nco.png", m3)
 
         results.append(result_row("generalization", i, "CPCCD", g1, t1, m1))
         results.append(result_row("generalization", i, "GA", g2, t2, m2))
-        results.append(result_row("generalization", i, "NCO", g3, t3, m3))
+        for seed_value, policy in policies:
+            g3, t3 = run_nco(env_i, policy, td)
+            m3 = evaluate_groups(g3, inst)
+            m3["num_parts"] = inst["num_parts"]
+            visualize_grouping_solution(inst, g3, f"NCO(seed={seed_value})", vis_dir / f"nco_seed{seed_value}.png", m3)
+            results.append(result_row("generalization", i, "NCO", g3, t3, m3, seed=seed_value))
 
         print(f"[generalization {i + 1}/{num_instances}] done | num_parts={sampled_num_parts}")
 
@@ -498,6 +500,7 @@ def save_results(results, filename):
             "instance_id",
             "num_parts",
             "method",
+            "seed",
             "grouping",
             "groups",
             "time",
@@ -514,6 +517,7 @@ def save_results(results, filename):
                 row["instance_id"],
                 row.get("num_parts", ""),
                 row["method"],
+                row.get("seed", ""),
                 row["grouping"],
                 row["groups"],
                 row["time"],
@@ -632,13 +636,13 @@ def plot_results(results, title, output_path):
     plt.close(fig)
 
 
-def load_policy(gen, device):
+def load_policy(gen, device, ckpt_path):
     policy = PCPolicy(
         node_feat_dim=gen.node_feat_dim,
         edge_feat_dim=gen.edge_feat_dim,
     ).to(device)
 
-    ckpt_path = Path("C:\\RL4CO_Simulation\\checkpoints\\best_model.pt")  #################################
+    ckpt_path = Path(ckpt_path)
     if not ckpt_path.exists():
         raise FileNotFoundError(f"checkpoint not found: {ckpt_path}")
 
@@ -649,20 +653,53 @@ def load_policy(gen, device):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=str, default="0,1,2")
+    args = parser.parse_args()
+
     device = "cpu"
 
-    gen = FPIGenerator(num_parts=4)
+    generator_params = dict(
+        num_parts=4,
+        max_num_parts=10,
+        material_types=3,
+        p_relative_motion=0.05,
+        p_extra_edge=0.30,
+        L_low=5.0,
+        L_high=160.0,
+        W_low=5.0,
+        W_high=70.0,
+        H_low=0.5,
+        H_high=30.0,
+        build_limit_L=260.0,
+        build_limit_W=120.0,
+        build_limit_H=80.0,
+        p_maint_H=0.10,
+        p_standard=0.02,
+    )
+
+    gen = FPIGenerator(**generator_params)
     env = PartConsolidationEnv(generator=gen, device=device)
-    policy = load_policy(gen, device)
+    seed_values = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
+    policies = []
+    for seed in seed_values:
+        ckpt = Path("checkpoints") / f"seed_{seed}" / "best_model.pt"
+        policies.append((seed, load_policy(gen, device, ckpt)))
 
     print("\n===== FIXED INSTANCE EXPERIMENT =====")
-    fixed_inst, fixed_results = run_fixed(env, policy)
+    fixed_inst, fixed_results = run_fixed(env, policies)
     df_fixed, summary_fixed = save_results(fixed_results, "fixed_results.csv")
     for row in summary_fixed:
         print(row)
 
     print("\n===== GENERALIZATION EXPERIMENT =====")
-    gen_results = run_generalization(env, policy, num_instances=300)
+    gen_results = run_generalization(
+        env,
+        policies,
+        num_instances=500,
+        min_parts=generator_params["num_parts"],
+        max_parts=generator_params["max_num_parts"],
+    )
     df_gen, summary_gen = save_results(gen_results, "generalization_results.csv")
     for row in summary_gen:
         print(row)
