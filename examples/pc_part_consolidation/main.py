@@ -71,7 +71,7 @@ def visualize_grouping_solution(inst, groups, method, output_path, metrics=None)
         for node in group:
             node_to_group[int(node)] = gid
 
-    palette = plt.cm.get_cmap("tab10", max(len(groups), 1) + 1)
+    palette = plt.get_cmap("tab10", max(len(groups), 1) + 1)
     node_colors = []
     border_colors = []
     labels = {}
@@ -538,6 +538,7 @@ def save_results(results, filename):
                 "method",
                 "groups",
                 "time",
+                "total_time",
                 "feasible",
                 "infeasible_solution",
                 "infeasible_groups",
@@ -557,6 +558,7 @@ def summarize_results(results):
         lambda: {
             "groups": 0.0,
             "time": 0.0,
+            "total_time": 0.0,
             "feasible": 0.0,
             "infeasible_solution": 0.0,
             "infeasible_groups": 0.0,
@@ -574,6 +576,7 @@ def summarize_results(results):
         elapsed = row["time"]
         agg[key]["groups"] += float(groups)
         agg[key]["time"] += float(elapsed)
+        agg[key]["total_time"] += float(elapsed)
         agg[key]["feasible"] += float(row["feasible"])
         agg[key]["infeasible_solution"] += float(row["infeasible_solution"])
         agg[key]["infeasible_groups"] += float(row["infeasible_groups"])
@@ -591,6 +594,7 @@ def summarize_results(results):
                 "method": method,
                 "groups": vals["groups"] / count,
                 "time": vals["time"] / count,
+                "total_time": vals["total_time"],
                 "feasible": vals["feasible"] / count,
                 "infeasible_solution": vals["infeasible_solution"] / count,
                 "infeasible_groups": vals["infeasible_groups"] / count,

@@ -30,7 +30,7 @@ class GASolver:
         generations: int = 300,
         elite_size: int = 2,
         tournament_size: int = 3,
-        mutation_rate: float = 0.85,
+        mutation_rate: float = 0.2,
         init_new_group_bias: float = 0.35,
         enable_post_merge_repair: bool = False,
         seed: int | None = None,

@@ -63,6 +63,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+    train_start_time = time.time()
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -276,6 +277,8 @@ def main():
             )
 
     writer.close()
+    total_train_time = time.time() - train_start_time
+    print(f"Training wall time: {total_train_time:.2f}s ({total_train_time / 60:.2f} min)")
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ class PartConsolidationEnv:
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
         self._terminal_reward_weights = {
-            "num_groups": -2.0,
+            "num_groups": -1.5,
             "total_internal_strength": 1.0,
         }
 
