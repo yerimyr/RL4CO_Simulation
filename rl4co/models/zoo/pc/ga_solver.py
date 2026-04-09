@@ -165,7 +165,6 @@ class GASolver:
 
         fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
 
-        axes[0].plot(generations, self.last_generation_best_scores, label="Best Fitness", linewidth=2)
         axes[0].plot(generations, self.last_generation_mean_scores, label="Mean Fitness", linewidth=1.8)
         axes[0].set_xlabel("Generation")
         axes[0].set_ylabel("Fitness")
@@ -173,7 +172,6 @@ class GASolver:
         axes[0].grid(True, alpha=0.3)
         axes[0].legend()
 
-        axes[1].plot(generations, self.last_generation_best_raw_scores, label="Best Raw Fitness", linewidth=2)
         axes[1].plot(generations, self.last_generation_mean_raw_scores, label="Mean Raw Fitness", linewidth=1.8)
         axes[1].set_xlabel("Generation")
         axes[1].set_ylabel("Raw Fitness")

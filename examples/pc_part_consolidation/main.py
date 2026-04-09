@@ -401,8 +401,8 @@ def summarize_result_rows(rows, label):
 
 
 def run_fixed(env, policies):
-    inst = create_fixed_instance(num_parts=env.generator.num_parts)
-    inst["num_parts"] = int(env.generator.num_parts)
+    inst = create_fixed_instance(num_parts=env.generator.min_num_parts)
+    inst["num_parts"] = int(env.generator.min_num_parts)
     print_instance(inst, "FIXED INSTANCE USED IN THE EXPERIMENT")
     td = inst_to_td(inst, env)
 
