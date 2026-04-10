@@ -78,8 +78,8 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 32
-    epochs = 500
+    batch_size = 64
+    epochs = 200
     lr = 1e-4
     entropy_coef = 0.05
     grad_clip = 1.0
@@ -97,6 +97,20 @@ def main():
     log_dir = f"runs/pc_general_graph_groupcount_seed{args.seed}_{int(time.time())}"
     writer = SummaryWriter(log_dir=log_dir)
     print("TensorBoard log dir:", log_dir)
+    writer.add_custom_scalars(
+        {
+            "Reward Components": {
+                "Train R1 vs R2": [
+                    "Multiline",
+                    ["train/R1_internal_strength", "train/R2_group_ratio"],
+                ],
+                "Eval R1 vs R2": [
+                    "Multiline",
+                    ["eval/R1_internal_strength", "eval/R2_group_ratio"],
+                ],
+            }
+        }
+    )
 
     # =========================
     # 🔥 [추가] 모델 저장 설정
@@ -186,6 +200,9 @@ def main():
         logp_sum = logps.sum(dim=1)
         entropy_mean = entropies.mean()
         reward_metrics = env.reward_metrics_from_actions(actions)
+        train_num_parts = td0["num_parts"].to(reward_metrics["num_groups"].device, dtype=torch.float32)
+        train_r1 = reward_metrics["normalized_internal_strength"]
+        train_r2 = reward_metrics["num_groups"] / torch.clamp(train_num_parts, min=1.0)
 
         loss_pg = -(advantage.detach() * logp_sum).mean()
         loss = loss_pg - entropy_coef * entropy_mean
@@ -222,7 +239,10 @@ def main():
         writer.add_scalar("train/infeasible_groups", reward_metrics["infeasible_groups"].mean().item(), ep)
         writer.add_scalar("train/num_groups", reward_metrics["num_groups"].mean().item(), ep)
         writer.add_scalar("train/internal_strength", reward_metrics["total_internal_strength"].mean().item(), ep)
+        writer.add_scalar("train/normalized_internal_strength", reward_metrics["normalized_internal_strength"].mean().item(), ep)
         writer.add_scalar("train/feasible_pair_count", reward_metrics["feasible_pair_count"].mean().item(), ep)
+        writer.add_scalar("train/R1_internal_strength", train_r1.mean().item(), ep)
+        writer.add_scalar("train/R2_group_ratio", train_r2.mean().item(), ep)
 
         if ep % 10 == 0:
             policy.eval()
@@ -237,6 +257,9 @@ def main():
                     epsilon=0.0,
                 )
                 eval_metrics = env.reward_metrics_from_actions(actions_eval)
+                eval_num_parts = td_eval["num_parts"].to(eval_metrics["num_groups"].device, dtype=torch.float32)
+                eval_r1 = eval_metrics["normalized_internal_strength"]
+                eval_r2 = eval_metrics["num_groups"] / torch.clamp(eval_num_parts, min=1.0)
 
             avg_eval = reward_eval.mean().item()
 
@@ -246,7 +269,10 @@ def main():
             writer.add_scalar("eval/infeasible_groups", eval_metrics["infeasible_groups"].mean().item(), ep)
             writer.add_scalar("eval/num_groups", eval_metrics["num_groups"].mean().item(), ep)
             writer.add_scalar("eval/internal_strength", eval_metrics["total_internal_strength"].mean().item(), ep)
+            writer.add_scalar("eval/normalized_internal_strength", eval_metrics["normalized_internal_strength"].mean().item(), ep)
             writer.add_scalar("eval/feasible_pair_count", eval_metrics["feasible_pair_count"].mean().item(), ep)
+            writer.add_scalar("eval/R1_internal_strength", eval_r1.mean().item(), ep)
+            writer.add_scalar("eval/R2_group_ratio", eval_r2.mean().item(), ep)
 
             # =========================
             # 🔥 [추가] BEST MODEL 저장

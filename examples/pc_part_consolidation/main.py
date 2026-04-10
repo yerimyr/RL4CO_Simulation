@@ -617,26 +617,122 @@ def plot_results(results, title, output_path):
 
     grouped_groups = defaultdict(list)
     grouped_time = defaultdict(list)
+    grouped_score = defaultdict(list)
     for row in results:
         grouped_groups[row["method"]].append(row["groups"])
         grouped_time[row["method"]].append(row["time"])
+        grouped_score[row["method"]].append(row.get("score", 0.0))
 
     methods = sorted(grouped_groups.keys())
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
 
-    axes[0].boxplot([grouped_groups[m] for m in methods], tick_labels=methods)
-    axes[0].set_title("Group Count")
-    axes[0].set_xlabel("Method")
-    axes[0].set_ylabel("Groups")
+    def _draw_violin(ax, data, ylabel, subplot_title):
+        positions = np.arange(1, len(methods) + 1)
+        parts = ax.violinplot(data, positions=positions, showmeans=False, showmedians=False, showextrema=False)
+        for body in parts["bodies"]:
+            body.set_facecolor("#9ecae1")
+            body.set_edgecolor("#4a4a4a")
+            body.set_alpha(0.8)
 
-    axes[1].boxplot([grouped_time[m] for m in methods], tick_labels=methods)
-    axes[1].set_title("Runtime")
-    axes[1].set_xlabel("Method")
-    axes[1].set_ylabel("Seconds")
+        means = [float(np.mean(vals)) for vals in data]
+        cis = []
+        for vals in data:
+            arr = np.asarray(vals, dtype=float)
+            if len(arr) <= 1:
+                cis.append(0.0)
+            else:
+                cis.append(1.96 * arr.std(ddof=1) / np.sqrt(len(arr)))
+
+        ax.errorbar(
+            positions,
+            means,
+            yerr=cis,
+            fmt="o",
+            color="#d62728",
+            ecolor="#d62728",
+            elinewidth=1.4,
+            capsize=4,
+            label="Mean ± 95% CI",
+        )
+        ax.set_xticks(positions)
+        ax.set_xticklabels(methods)
+        ax.set_xlabel("Method")
+        ax.set_ylabel(ylabel)
+        ax.set_title(subplot_title)
+        ax.grid(True, axis="y", alpha=0.25)
+        ax.legend()
+
+    _draw_violin(axes[0], [grouped_groups[m] for m in methods], "Groups", "Group Count")
+    _draw_violin(axes[1], [grouped_time[m] for m in methods], "Seconds", "Runtime")
+    _draw_violin(axes[2], [grouped_score[m] for m in methods], "Score", "Score")
 
     fig.suptitle(title)
     fig.tight_layout()
     fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_difference_heatmap(results, title, output_path):
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        print(f"skip difference heatmap '{title}': {exc}")
+        return
+
+    def _representative_rows(rows):
+        best = {}
+        for row in rows:
+            key = (row["instance_type"], row["instance_id"], row["method"])
+            current = best.get(key)
+            if current is None or float(row.get("score", 0.0)) > float(current.get("score", 0.0)):
+                best[key] = row
+        return best
+
+    rep = _representative_rows(results)
+    instance_keys = sorted({(row["instance_type"], row["instance_id"]) for row in results})
+    pair_specs = [
+        ("CPCCD", "GA"),
+        ("CPCCD", "NCO"),
+        ("GA", "NCO"),
+    ]
+
+    group_diff = np.full((len(instance_keys), len(pair_specs)), np.nan, dtype=float)
+    score_diff = np.full((len(instance_keys), len(pair_specs)), np.nan, dtype=float)
+
+    for r, inst_key in enumerate(instance_keys):
+        for c, (m1, m2) in enumerate(pair_specs):
+            row1 = rep.get((inst_key[0], inst_key[1], m1))
+            row2 = rep.get((inst_key[0], inst_key[1], m2))
+            if row1 is None or row2 is None:
+                continue
+            group_diff[r, c] = float(str(row1["grouping"]) != str(row2["grouping"]))
+            score_diff[r, c] = float(row1.get("score", 0.0)) - float(row2.get("score", 0.0))
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, max(4.5, len(instance_keys) * 0.18)))
+
+    im0 = axes[0].imshow(group_diff, aspect="auto", cmap="Blues", vmin=0.0, vmax=1.0)
+    axes[0].set_title("Grouping Difference (1=different)")
+    axes[0].set_xticks(range(len(pair_specs)))
+    axes[0].set_xticklabels([f"{a}\nvs\n{b}" for a, b in pair_specs])
+    axes[0].set_yticks(range(len(instance_keys)))
+    axes[0].set_yticklabels([f"{it}:{idx}" for it, idx in instance_keys], fontsize=7)
+    fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
+
+    vmax = np.nanmax(np.abs(score_diff)) if np.isfinite(score_diff).any() else 1.0
+    vmax = max(vmax, 1e-6)
+    im1 = axes[1].imshow(score_diff, aspect="auto", cmap="coolwarm", vmin=-vmax, vmax=vmax)
+    axes[1].set_title("Score Difference (left - right)")
+    axes[1].set_xticks(range(len(pair_specs)))
+    axes[1].set_xticklabels([f"{a}\n-\n{b}" for a, b in pair_specs])
+    axes[1].set_yticks(range(len(instance_keys)))
+    axes[1].set_yticklabels([])
+    fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+
+    fig.suptitle(title)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
     plt.close(fig)
 
 
@@ -712,9 +808,11 @@ def main():
     df_all, summary_all = save_results(all_results, "all_results.csv")
     summarize_result_rows(all_results, "ALL")
 
-    plot_results(fixed_results, "Fixed_Instance_Result", "Fixed_Instance_Result.png")
-    plot_results(gen_results, "Generalization_Result", "Generalization_Result.png")
-    plot_results(all_results, "All_Results", "All_Results.png")
+    plot_results(df_fixed, "Fixed_Instance_Result", "Fixed_Instance_Result.png")
+    plot_results(df_gen, "Generalization_Result", "Generalization_Result.png")
+    plot_results(df_all, "All_Results", "All_Results.png")
+    plot_difference_heatmap(df_gen, "Generalization_Differences", "Generalization_Differences.png")
+    plot_difference_heatmap(df_all, "All_Results_Differences", "All_Results_Differences.png")
 
     return {
         "fixed_instance": fixed_inst,

@@ -35,8 +35,8 @@ class PartConsolidationEnv:
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
         self._terminal_reward_weights = {
-            "num_groups": -1.5,
-            "total_internal_strength": 1.0,
+            "num_groups": -1.0,
+            "normalized_internal_strength": 1.0,
         }
 
     def reset(self, batch_size: int) -> TensorDict:
@@ -302,6 +302,8 @@ class PartConsolidationEnv:
             infeasible_solution[b] = float(infeasible)
             feasible[b] = float(not infeasible)
 
+        normalized_internal_strength = total_internal_strength / torch.clamp(feasible_pair_count, min=1.0)
+
         return {
             "feasible": feasible,
             "infeasible_solution": infeasible_solution,
@@ -309,6 +311,7 @@ class PartConsolidationEnv:
             "num_groups": num_groups,
             "total_internal_strength": total_internal_strength,
             "feasible_pair_count": feasible_pair_count,
+            "normalized_internal_strength": normalized_internal_strength,
         }
 
     def _group_internal_strength(self, group: list[int], w: torch.Tensor) -> torch.Tensor:

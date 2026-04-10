@@ -28,7 +28,7 @@ class GASolver:
         self,
         pop_size: int = 120,
         generations: int = 300,
-        elite_size: int = 2,
+        elite_size: int = 12,
         tournament_size: int = 3,
         mutation_rate: float = 0.2,
         init_new_group_bias: float = 0.35,
@@ -50,11 +50,34 @@ class GASolver:
         self.last_generation_mean_raw_scores: list[float] = []
         self.score_weights = dict(DEFAULT_SCORE_WEIGHTS)
 
+    @staticmethod
+    def _pop_size_for_num_parts(n: int) -> int:
+        table = {
+            4: 20,
+            5: 40,
+            6: 60,
+            7: 80,
+            8: 100,
+            9: 120,
+            10: 140,
+        }
+        if n in table:
+            return table[n]
+        if n < 4:
+            return 20
+        return 140
+
+    @staticmethod
+    def _elite_size_for_pop_size(pop_size: int) -> int:
+        return max(1, int(round(pop_size * 0.10)))
+
     def solve(self, inst):
         start = time.time()
         n = int(inst["num_parts"])
+        effective_pop_size = self._pop_size_for_num_parts(n)
+        effective_elite_size = self._elite_size_for_pop_size(effective_pop_size)
         toolbox = self._build_toolbox(inst, n)
-        pop = toolbox.population(n=self.pop_size)
+        pop = toolbox.population(n=effective_pop_size)
         self._evaluate_invalid(pop, toolbox)
 
         scores = self._population_scores([self._as_array(ind) for ind in pop], inst)
@@ -70,8 +93,8 @@ class GASolver:
 
         cxpb = 0.9
         for _ in range(self.generations):
-            elites = [toolbox.clone(ind) for ind in tools.selBest(pop, self.elite_size)]
-            offspring = tools.selTournament(pop, self.pop_size - self.elite_size, tournsize=self.tournament_size)
+            elites = [toolbox.clone(ind) for ind in tools.selBest(pop, effective_elite_size)]
+            offspring = tools.selTournament(pop, effective_pop_size - effective_elite_size, tournsize=self.tournament_size)
             offspring = [toolbox.clone(ind) for ind in offspring]
 
             for i in range(0, len(offspring) - 1, 2):
@@ -163,23 +186,16 @@ class GASolver:
 
         generations = list(range(len(self.last_generation_best_scores)))
 
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+        fig, ax = plt.subplots(1, 1, figsize=(7.5, 4.5))
 
-        axes[0].plot(generations, self.last_generation_mean_scores, label="Mean Fitness", linewidth=1.8)
-        axes[0].set_xlabel("Generation")
-        axes[0].set_ylabel("Fitness")
-        axes[0].set_title("Normalized Fitness by Generation")
-        axes[0].grid(True, alpha=0.3)
-        axes[0].legend()
+        ax.plot(generations, self.last_generation_best_raw_scores, label="Best Raw Fitness", linewidth=2)
+        ax.plot(generations, self.last_generation_mean_raw_scores, label="Mean Raw Fitness", linewidth=1.8)
+        ax.set_xlabel("Generation")
+        ax.set_ylabel("Raw Fitness")
+        ax.set_title("GA Raw Fitness by Generation")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
 
-        axes[1].plot(generations, self.last_generation_mean_raw_scores, label="Mean Raw Fitness", linewidth=1.8)
-        axes[1].set_xlabel("Generation")
-        axes[1].set_ylabel("Raw Fitness")
-        axes[1].set_title("Raw Fitness by Generation")
-        axes[1].grid(True, alpha=0.3)
-        axes[1].legend()
-
-        fig.suptitle("GA Fitness by Generation")
         fig.tight_layout()
         fig.savefig(save_path, dpi=150)
         if show:
