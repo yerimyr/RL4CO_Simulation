@@ -422,7 +422,6 @@ def save_instance_info_png(inst, title, output_path):
         fontsize=10,
         transform=ax.transAxes,
     )
-    fig.tight_layout()
     fig.savefig(output_path, dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -855,7 +854,7 @@ def main():
     gen_results = run_generalization(
         env,
         policies,
-        num_instances=10,
+        num_instances=500,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )
