@@ -60,26 +60,16 @@ def rollout_episode_from_td(
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=0)
-    args = parser.parse_args()
     train_start_time = time.time()
-
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Device:", device)
-    print("Seed:", args.seed)
 
     # =========================
     # Hyperparameters
     # =========================
     batch_size = 64
-    epochs = 100
+    epochs = 200
     lr = 1e-4
     entropy_coef = 0.05
     grad_clip = 1.0
@@ -94,7 +84,7 @@ def main():
     # =========================
     # TensorBoard
     # =========================
-    log_dir = f"runs/pc_general_graph_groupcount_seed{args.seed}_{int(time.time())}"
+    log_dir = f"runs/pc_general_graph_groupcount_{int(time.time())}"
     writer = SummaryWriter(log_dir=log_dir)
     print("TensorBoard log dir:", log_dir)
     writer.add_custom_scalars(
@@ -115,7 +105,7 @@ def main():
     # =========================
     # 🔥 [추가] 모델 저장 설정
     # =========================
-    save_dir = Path("checkpoints") / f"seed_{args.seed}"
+    save_dir = Path("checkpoints")
     save_dir.mkdir(parents=True, exist_ok=True)
 
     best_model_path = save_dir / "best_model.pt"
