@@ -369,6 +369,64 @@ def np_round(arr, decimals=3):
     return np.round(arr, decimals=decimals)
 
 
+def instance_to_lines(inst, title):
+    return [
+        f"===== {title} =====",
+        "num_parts:",
+        str(inst["num_parts"]),
+        "build_limit [L, W, H]:",
+        str(np_round(inst["build_limit"])),
+        "material:",
+        str(inst["material"]),
+        "maintfreq:",
+        str(inst["maintfreq"]),
+        "isstandard:",
+        str(inst["isstandard"]),
+        "size [L, W, H] per part:",
+        str(np_round(inst["size"])),
+        "assembly_adj:",
+        str(inst["assembly_adj"].astype(int)),
+        "mat_var:",
+        str(inst["mat_var"].astype(int)),
+        "maint_diff:",
+        str(inst["maint_diff"].astype(int)),
+        "rel_motion:",
+        str(inst["rel_motion"].astype(int)),
+        "compat:",
+        str(inst["compat"].astype(int)),
+        "W:",
+        str(np_round(inst["W"])),
+    ]
+
+
+def save_instance_info_png(inst, title, output_path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = instance_to_lines(inst, title)
+    num_lines = max(len(lines), 1)
+    fig_height = max(8, 0.33 * num_lines)
+    fig, ax = plt.subplots(figsize=(10, fig_height))
+    ax.axis("off")
+    ax.text(
+        0.01,
+        0.99,
+        "\n".join(lines),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=10,
+        transform=ax.transAxes,
+    )
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def result_row(instance_type, instance_id, method, groups, elapsed, metrics, seed=None):
     group_count = evaluate(groups)
     return {
@@ -458,6 +516,8 @@ def run_generalization(env, policies, num_instances=30, min_parts=4, max_parts=1
         env_i = _clone_env_with_num_parts(env, sampled_num_parts)
         td = env_i.reset(batch_size=1)
         inst = td_to_inst(td, env_i.generator.num_parts)
+        vis_dir = Path("visualizations") / "generalization" / f"instance_{i:03d}"
+        save_instance_info_png(inst, f"GENERALIZATION RANDOM INSTANCE {i}", vis_dir / "instance_info.png")
 
         g1, t1 = cpccd.solve(inst)
         g2, t2 = ga.solve(inst)
@@ -467,7 +527,6 @@ def run_generalization(env, policies, num_instances=30, min_parts=4, max_parts=1
         m2 = evaluate_groups(g2, inst)
         m2["num_parts"] = inst["num_parts"]
 
-        vis_dir = Path("visualizations") / "generalization" / f"instance_{i:03d}"
         visualize_grouping_solution(inst, g1, "CPCCD", vis_dir / "cpccd.png", m1)
         visualize_grouping_solution(inst, g2, "GA", vis_dir / "ga.png", m2)
 
@@ -796,7 +855,7 @@ def main():
     gen_results = run_generalization(
         env,
         policies,
-        num_instances=500,
+        num_instances=10,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )
