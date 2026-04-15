@@ -63,11 +63,55 @@ def describe_metric(pivot: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def run_friedman_and_posthoc(df: pd.DataFrame, metric: str, methods: list[str]) -> tuple[dict, pd.DataFrame, pd.DataFrame]:
+def build_pivot(df: pd.DataFrame, metric: str, methods: list[str]) -> pd.DataFrame:
     pivot = df.pivot(index="instance_id", columns="method", values=metric)
     pivot = pivot[methods].dropna()
     if len(pivot) == 0:
         raise ValueError(f"No complete paired rows found for metric '{metric}' and methods {methods}.")
+    return pivot
+
+
+def save_metric_boxplot(pivot: pd.DataFrame, metric: str, output_path: Path) -> bool:
+    try:
+        import matplotlib
+    except ModuleNotFoundError as exc:
+        print(f"Skip boxplot for '{metric}': {exc}")
+        return False
+
+    matplotlib.use("Agg")
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        print(f"Skip boxplot for '{metric}': {exc}")
+        return False
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    methods = list(pivot.columns)
+    data = [pivot[m].astype(float).values for m in methods]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bp = ax.boxplot(data, patch_artist=True, labels=methods)
+    colors = ["#9ecae1", "#fdae6b", "#a1d99b"]
+    for patch, color in zip(bp["boxes"], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.85)
+
+    means = [float(pivot[m].astype(float).mean()) for m in methods]
+    ax.scatter(range(1, len(methods) + 1), means, color="#d62728", marker="D", s=36, label="Mean")
+    ax.set_title(f"{metric.capitalize()} Distribution by Method")
+    ax.set_xlabel("Method")
+    ax.set_ylabel(metric.capitalize())
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
+    plt.close(fig)
+    return True
+
+
+def run_friedman_and_posthoc(df: pd.DataFrame, metric: str, methods: list[str]) -> tuple[dict, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    pivot = build_pivot(df, metric, methods)
 
     arrays = [pivot[m].astype(float).values for m in methods]
     friedman_stat, friedman_p = friedmanchisquare(*arrays)
@@ -108,7 +152,7 @@ def run_friedman_and_posthoc(df: pd.DataFrame, metric: str, methods: list[str]) 
         "friedman_p_value": float(friedman_p),
         "kendalls_w": float(kendalls_w),
     }
-    return overall, describe_metric(pivot), pd.DataFrame(pair_rows)
+    return overall, describe_metric(pivot), pd.DataFrame(pair_rows), pivot
 
 
 def print_block(title: str, df: pd.DataFrame) -> None:
@@ -146,7 +190,7 @@ def main():
 
     summary_rows = []
     for metric in args.metrics:
-        overall, descriptives, pairwise = run_friedman_and_posthoc(df, metric, args.methods)
+        overall, descriptives, pairwise, pivot = run_friedman_and_posthoc(df, metric, args.methods)
 
         print(f"\n\n##### METRIC: {metric} #####")
         print(
@@ -162,6 +206,9 @@ def main():
         summary_rows.append(overall)
         descriptives.to_csv(output_dir / f"{metric}_descriptives.csv", index=False)
         pairwise.to_csv(output_dir / f"{metric}_pairwise.csv", index=False)
+        plot_path = output_dir / f"{metric}_boxplot.png"
+        if save_metric_boxplot(pivot, metric, plot_path):
+            print(f"Saved boxplot: {plot_path.resolve()}")
 
     pd.DataFrame(summary_rows).to_csv(output_dir / "friedman_summary.csv", index=False)
     print(f"\nSaved results to: {output_dir.resolve()}")

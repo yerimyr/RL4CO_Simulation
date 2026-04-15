@@ -48,7 +48,7 @@ class CPCCDSolver:
 
         if modularity <= self.alpha or len(communities) <= 1:
             groups = self._solve_strength_only(inst)
-            return groups, time.time() - start
+            return groups, time.perf_counter() - start
 
         blocked_pairs: set[tuple[int, int]] = set()
         groups = [[i] for i in range(inst["num_parts"])]
