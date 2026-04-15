@@ -845,7 +845,7 @@ def main():
     gen_results = run_generalization(
         env,
         policy,
-        num_instances=500,
+        num_instances=10,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )

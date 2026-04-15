@@ -39,7 +39,7 @@ class CPCCDSolver:
         self.last_modularity: float = 0.0
 
     def solve(self, inst):
-        start = time.time()
+        start = time.perf_counter()
         self.last_conflicts = []
 
         communities, modularity = self._get_communities(inst)
@@ -65,7 +65,7 @@ class CPCCDSolver:
         else:
             groups = self._solve_cpccd_once(inst, communities, blocked_pairs)
 
-        return groups, time.time() - start
+        return groups, time.perf_counter() - start
 
     def _get_communities(self, inst) -> tuple[list[list[int]], float]:
         if "communities" in inst and inst["communities"]:

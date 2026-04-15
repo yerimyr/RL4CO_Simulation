@@ -68,7 +68,7 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 64
+    batch_size = 128
     epochs = 200
     lr = 1e-4
     entropy_coef = 0.05
