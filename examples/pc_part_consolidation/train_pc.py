@@ -115,7 +115,7 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=8,
+        num_parts=10,
         max_num_parts=10,
         material_types=1,
         p_relative_motion=0.01,
