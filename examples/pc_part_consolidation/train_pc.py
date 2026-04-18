@@ -69,7 +69,7 @@ def main():
     # Hyperparameters
     # =========================
     batch_size = 128
-    epochs = 200
+    epochs = 100
     lr = 1e-4
     entropy_coef = 0.05
     grad_clip = 1.0
@@ -115,22 +115,22 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=4,
+        num_parts=8,
         max_num_parts=10,
-        material_types=3,
-        p_relative_motion=0.05,
-        p_extra_edge=0.30,
+        material_types=1,
+        p_relative_motion=0.01,
+        p_extra_edge=0.50,
         L_low=5.0,
         L_high=160.0,
         W_low=5.0,
         W_high=70.0,
         H_low=0.5,
         H_high=30.0,
-        build_limit_L=260.0,
-        build_limit_W=120.0,
-        build_limit_H=80.0,
-        p_maint_H=0.10,
-        p_standard=0.02,
+        build_limit_L=1600.0,
+        build_limit_W=700.0,
+        build_limit_H=300.0,
+        p_maint_H=0.01,
+        p_standard=0.01,
     )
 
     gen = FPIGenerator(**generator_params)

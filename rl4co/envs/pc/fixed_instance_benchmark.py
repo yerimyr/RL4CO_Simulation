@@ -86,6 +86,7 @@ def create_fixed_instance(
     build_limit=(260.0, 120.0, 80.0),
     seed=42,
     topology="chain",
+    material_types=3,
 ):
     if topology not in TOPOLOGY_NAMES:
         raise ValueError(f"topology must be one of {sorted(TOPOLOGY_NAMES)}")
@@ -100,7 +101,10 @@ def create_fixed_instance(
     if build_limit.shape != (3,):
         raise ValueError("build_limit must be a length-3 iterable: (L_limit, W_limit, H_limit)")
 
-    material = np.array([(i // 2) % 3 for i in range(num_parts)], dtype=int)
+    if material_types < 1:
+        raise ValueError("material_types must be >= 1")
+
+    material = np.array([(i // 2) % material_types for i in range(num_parts)], dtype=int)
     maintfreq = np.array([(i % 3) == 0 for i in range(num_parts)], dtype=int)
     isstandard = np.zeros(num_parts, dtype=int)
     material_available = np.ones(num_parts, dtype=bool)

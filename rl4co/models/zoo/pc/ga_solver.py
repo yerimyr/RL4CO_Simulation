@@ -29,7 +29,7 @@ class GASolver:
         pop_size: int = 120,
         generations: int = 300,
         elite_size: int = 12,
-        tournament_size: int = 3,
+        tournament_size: int = 2,
         mutation_rate: float = 0.2,
         init_new_group_bias: float = 0.35,
         enable_post_merge_repair: bool = False,
@@ -161,12 +161,18 @@ class GASolver:
     def _mate_individuals(self, ind1, ind2, n: int, inst):
         child1 = self._repair(self._crossover(self._as_array(ind1), self._as_array(ind2), n), inst)
         child2 = self._repair(self._crossover(self._as_array(ind2), self._as_array(ind1), n), inst)
+        if not self._solution_feasible(child1, inst):
+            child1 = self._as_array(ind1)
+        if not self._solution_feasible(child2, inst):
+            child2 = self._as_array(ind2)
         ind1[:] = child1.tolist()
         ind2[:] = child2.tolist()
         return ind1, ind2
 
     def _mutate_individual(self, ind, inst):
         child = self._repair(self._mutate(self._as_array(ind), inst), inst)
+        if not self._solution_feasible(child, inst):
+            child = self._as_array(ind)
         ind[:] = child.tolist()
         return (ind,)
 
@@ -232,13 +238,8 @@ class GASolver:
     def _fitness(self, sol, inst) -> float:
         groups = self._decode(sol)
         metrics = evaluate_groups(groups, inst)
-        # Fallback raw score if population-level normalization is not available.
-        return (
-            self.score_weights["infeasible_solution"] * metrics["infeasible_solution"]
-            + self.score_weights["infeasible_groups"] * metrics["infeasible_groups"]
-            + self.score_weights["num_groups"] * metrics["num_groups"]
-            + self.score_weights["total_internal_strength"] * metrics["total_internal_strength"]
-            + self.score_weights["feasible_pair_count"] * metrics["feasible_pair_count"]
+        return float(
+            sum(float(weight) * float(metrics[field]) for field, weight in self.score_weights.items())
         )
 
     def _population_scores(self, pop, inst) -> list[float]:
@@ -328,47 +329,68 @@ class GASolver:
         if self.rng.random() > self.mutation_rate:
             return child
 
-        op = self.rng.choice(["move", "merge", "split"])
+        feasible_candidates = self._collect_feasible_mutation_candidates(child, inst)
+        valid_ops = [op for op, candidates in feasible_candidates.items() if candidates]
+        if not valid_ops:
+            return child
+
+        op = self.rng.choice(valid_ops)
+        return self.rng.choice(feasible_candidates[op])
+
+    def _collect_feasible_mutation_candidates(self, sol: np.ndarray, inst) -> dict[str, list[np.ndarray]]:
+        child = self._canonicalize(sol.copy())
         groups = self._decode(child)
         n = len(child)
 
-        if op == "move":
-            node = self.rng.randrange(n)
+        candidates: dict[str, list[np.ndarray]] = {
+            "move": [],
+            "merge": [],
+            "split": [],
+        }
+
+        for node in range(n):
             current_gid = int(child[node])
-            target_gids = [gid for gid in range(len(groups)) if gid != current_gid]
-            self.rng.shuffle(target_gids)
-            for gid in target_gids:
+            for gid in range(len(groups)):
+                if gid == current_gid:
+                    continue
                 trial = child.copy()
                 trial[node] = gid
-                if self._lightweight_valid_move(trial, inst):
-                    return self._canonicalize(trial)
+                if self._solution_feasible(trial, inst):
+                    candidates["move"].append(self._canonicalize(trial))
 
-        if op == "merge" and len(groups) >= 2:
-            pair_ids = [(i, j) for i in range(len(groups)) for j in range(i + 1, len(groups))]
-            self.rng.shuffle(pair_ids)
-            for i, j in pair_ids:
-                merged = sorted(groups[i] + groups[j])
-                if self._group_feasible(merged, inst):
+        if len(groups) >= 2:
+            for i in range(len(groups)):
+                for j in range(i + 1, len(groups)):
+                    merged = sorted(groups[i] + groups[j])
+                    if not self._group_feasible(merged, inst):
+                        continue
                     trial = child.copy()
                     for node in groups[j]:
                         trial[node] = i
-                    return self._canonicalize(trial)
+                    if self._solution_feasible(trial, inst):
+                        candidates["merge"].append(self._canonicalize(trial))
 
-        if op == "split":
-            large_groups = [group for group in groups if len(group) >= 3]
-            self.rng.shuffle(large_groups)
-            for group in large_groups:
-                cut = self.rng.randint(1, len(group) - 1)
+        for group in groups:
+            if len(group) < 3:
+                continue
+            for cut in range(1, len(group)):
                 left = sorted(group[:cut])
                 right = sorted(group[cut:])
-                if self._group_feasible(left, inst) and self._group_feasible(right, inst):
-                    trial = child.copy()
-                    new_gid = int(child.max()) + 1
-                    for node in right:
-                        trial[node] = new_gid
-                    return self._canonicalize(trial)
+                if not (self._group_feasible(left, inst) and self._group_feasible(right, inst)):
+                    continue
+                trial = child.copy()
+                new_gid = int(child.max()) + 1
+                for node in right:
+                    trial[node] = new_gid
+                if self._solution_feasible(trial, inst):
+                    candidates["split"].append(self._canonicalize(trial))
 
-        return child
+        for op, sols in candidates.items():
+            unique = {}
+            for candidate in sols:
+                unique[tuple(candidate.tolist())] = candidate
+            candidates[op] = list(unique.values())
+        return candidates
 
     def _repair(self, sol: np.ndarray, inst) -> np.ndarray:
         groups = self._decode(self._canonicalize(sol))
@@ -422,8 +444,7 @@ class GASolver:
         return self._encode(repaired, len(sol))
 
     def _lightweight_valid_move(self, sol: np.ndarray, inst) -> bool:
-        groups = self._decode(self._canonicalize(sol))
-        return all(self._group_feasible(group, inst) for group in groups)
+        return self._solution_feasible(sol, inst)
 
     def _internal_weight(self, group: list[int], w: np.ndarray) -> float:
         total = 0.0
@@ -476,6 +497,12 @@ class GASolver:
                 if compat[i, j] == 0:
                     return False
         return self._connected(group, inst)
+
+    def _solution_feasible(self, sol: np.ndarray, inst) -> bool:
+        groups = self._decode(self._canonicalize(sol))
+        if not all(self._group_feasible(group, inst) for group in groups):
+            return False
+        return self._check_r3(groups, inst) is None
 
     def _check_r3(self, groups: list[list[int]], inst):
         checker = inst.get("assembly_access_checker")

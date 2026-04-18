@@ -6,11 +6,8 @@ import numpy as np
 
 
 DEFAULT_SCORE_WEIGHTS = {
-    "infeasible_solution": -3.0,
-    "infeasible_groups": -2.0,
-    "num_groups": -1.5,
-    "total_internal_strength": 1.0,
-    "feasible_pair_count": 0.5,
+    "group_ratio": -1.0,
+    "normalized_internal_strength": 1.0,
 }
 
 
@@ -97,6 +94,7 @@ def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
     infeasible_groups = 0
     total_internal_strength = 0.0
     total_feasible_pairs = 0
+    num_parts = float(inst.get("num_parts", 0.0))
 
     for group in groups:
         feasible = group_feasible(group, inst)
@@ -105,50 +103,43 @@ def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
         total_feasible_pairs += feasible_pair_count(group, inst)
 
     infeasible_solution = int(infeasible_groups > 0 or not check_r3(groups, inst))
+    normalized_internal_strength = total_internal_strength / max(float(total_feasible_pairs), 1.0)
+    group_ratio = float(len(groups)) / max(num_parts, 1.0)
     return {
         "feasible": float(1 - infeasible_solution),
         "infeasible_solution": float(infeasible_solution),
         "infeasible_groups": float(infeasible_groups),
         "num_groups": float(len(groups)),
+        "group_ratio": float(group_ratio),
         "total_internal_strength": float(total_internal_strength),
         "feasible_pair_count": float(total_feasible_pairs),
+        "normalized_internal_strength": float(normalized_internal_strength),
     }
 
 
-def zscore_normalize_dicts(rows: list[dict], fields: list[str]) -> list[dict]:
-    if not rows:
-        return []
+def _augment_reward_metrics(row: dict) -> dict:
+    out = dict(row)
 
-    stats = {}
-    for field in fields:
-        values = np.asarray([float(row[field]) for row in rows], dtype=float)
-        mean = float(values.mean())
-        std = float(values.std(ddof=0))
-        if std < 1e-8:
-            std = 1.0
-        stats[field] = (mean, std)
+    num_groups = float(out.get("num_groups", out.get("groups", 0.0)))
+    num_parts = float(out.get("num_parts", 0.0))
+    total_internal_strength = float(out.get("total_internal_strength", 0.0))
+    feasible_pair_count_value = float(out.get("feasible_pair_count", 0.0))
 
-    normalized = []
-    for row in rows:
-        new_row = dict(row)
-        for field in fields:
-            mean, std = stats[field]
-            new_row[f"{field}_z"] = (float(row[field]) - mean) / std
-        normalized.append(new_row)
-    return normalized
+    out["num_groups"] = num_groups
+    out["group_ratio"] = num_groups / max(num_parts, 1.0)
+    out["normalized_internal_strength"] = total_internal_strength / max(feasible_pair_count_value, 1.0)
+    return out
 
 
 def score_metric_rows(rows: list[dict], weights: dict[str, float] | None = None) -> list[dict]:
     weights = weights or DEFAULT_SCORE_WEIGHTS
-    metric_fields = list(weights.keys())
-    normalized = zscore_normalize_dicts(rows, metric_fields)
-
     scored = []
-    for row in normalized:
+    for row in rows:
+        enriched = _augment_reward_metrics(row)
         score = 0.0
         for field, weight in weights.items():
-            score += weight * float(row[f"{field}_z"])
-        out = dict(row)
+            score += weight * float(enriched[field])
+        out = dict(enriched)
         out["score"] = score
         scored.append(out)
     return scored

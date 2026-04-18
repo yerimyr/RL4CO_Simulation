@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import csv
 from collections import defaultdict
+from itertools import combinations
 import random
 import sys
 import numpy as np
@@ -369,11 +370,64 @@ def np_round(arr, decimals=3):
     return np.round(arr, decimals=decimals)
 
 
+def compute_search_space_proxy(inst):
+    n = int(inst["num_parts"])
+    compat = np.asarray(inst["compat"]).astype(bool)
+
+    pair_count = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            if compat[i, j]:
+                pair_count += 1
+
+    total_pairs = n * (n - 1) / 2
+    compat_density = float(pair_count / total_pairs) if total_pairs > 0 else 0.0
+
+    triple_count = 0
+    quad_count = 0
+    max_pairwise_clique_size = 1 if n > 0 else 0
+
+    for r in range(3, min(n, 4) + 1):
+        for nodes in combinations(range(n), r):
+            ok = True
+            for i, j in combinations(nodes, 2):
+                if not compat[i, j]:
+                    ok = False
+                    break
+            if ok:
+                if r == 3:
+                    triple_count += 1
+                elif r == 4:
+                    quad_count += 1
+                if r > max_pairwise_clique_size:
+                    max_pairwise_clique_size = r
+
+    if max_pairwise_clique_size < 2 and pair_count > 0:
+        max_pairwise_clique_size = 2
+
+    return {
+        "compat_density": compat_density,
+        "feasible_pair_proxy": int(pair_count),
+        "feasible_triple_proxy": int(triple_count),
+        "feasible_quad_proxy": int(quad_count),
+        "max_pairwise_clique_size": int(max_pairwise_clique_size),
+    }
+
+
 def instance_to_lines(inst, title):
+    proxy = compute_search_space_proxy(inst)
     return [
         f"===== {title} =====",
         "num_parts:",
         str(inst["num_parts"]),
+        "search_space_proxy:",
+        (
+            f"compat_density={proxy['compat_density']:.3f}, "
+            f"pairs={proxy['feasible_pair_proxy']}, "
+            f"triples={proxy['feasible_triple_proxy']}, "
+            f"quads={proxy['feasible_quad_proxy']}, "
+            f"max_clique={proxy['max_pairwise_clique_size']}"
+        ),
         "build_limit [L, W, H]:",
         str(np_round(inst["build_limit"])),
         "material:",
@@ -426,7 +480,7 @@ def save_instance_info_png(inst, title, output_path):
     plt.close(fig)
 
 
-def result_row(instance_type, instance_id, method, groups, elapsed, metrics):
+def result_row(instance_type, instance_id, method, groups, elapsed, metrics, search_space_proxy=None):
     group_count = evaluate(groups)
     return {
         "instance_type": instance_type,
@@ -437,6 +491,7 @@ def result_row(instance_type, instance_id, method, groups, elapsed, metrics):
         "num_groups": group_count,
         "time": float(elapsed),
         "grouping": str(groups),
+        **({} if search_space_proxy is None else search_space_proxy),
         **metrics,
     }
 
@@ -457,9 +512,13 @@ def summarize_result_rows(rows, label):
 
 
 def run_fixed(env, policy):
-    inst = create_fixed_instance(num_parts=env.generator.min_num_parts)
+    inst = create_fixed_instance(
+        num_parts=env.generator.min_num_parts,
+        material_types=env.generator.p.material_types,
+    )
     inst["num_parts"] = int(env.generator.min_num_parts)
     print_instance(inst, "FIXED INSTANCE USED IN THE EXPERIMENT")
+    proxy = compute_search_space_proxy(inst)
     td = inst_to_td(inst, env)
 
     cpccd = CPCCDSolver()
@@ -476,14 +535,14 @@ def run_fixed(env, policy):
     visualize_grouping_solution(inst, g1, "CPCCD", Path("visualizations") / "fixed" / "cpccd.png", m1)
     visualize_grouping_solution(inst, g2, "GA", Path("visualizations") / "fixed" / "ga.png", m2)
     rows = [
-        result_row("fixed", 0, "CPCCD", g1, t1, m1),
-        result_row("fixed", 0, "GA", g2, t2, m2),
+        result_row("fixed", 0, "CPCCD", g1, t1, m1, proxy),
+        result_row("fixed", 0, "GA", g2, t2, m2, proxy),
     ]
     g3, t3 = run_nco(env, policy, td)
     m3 = evaluate_groups(g3, inst)
     m3["num_parts"] = inst["num_parts"]
     visualize_grouping_solution(inst, g3, "NCO", Path("visualizations") / "fixed" / "nco.png", m3)
-    rows.append(result_row("fixed", 0, "NCO", g3, t3, m3))
+    rows.append(result_row("fixed", 0, "NCO", g3, t3, m3, proxy))
     return inst, rows
 
 
@@ -513,6 +572,7 @@ def run_generalization(env, policy, num_instances=30, min_parts=4, max_parts=10,
         env_i = _clone_env_with_num_parts(env, sampled_num_parts)
         td = env_i.reset(batch_size=1)
         inst = td_to_inst(td, env_i.generator.num_parts)
+        proxy = compute_search_space_proxy(inst)
         vis_dir = Path("visualizations") / "generalization" / f"instance_{i:03d}"
         save_instance_info_png(inst, f"GENERALIZATION RANDOM INSTANCE {i}", vis_dir / "instance_info.png")
 
@@ -527,13 +587,13 @@ def run_generalization(env, policy, num_instances=30, min_parts=4, max_parts=10,
         visualize_grouping_solution(inst, g1, "CPCCD", vis_dir / "cpccd.png", m1)
         visualize_grouping_solution(inst, g2, "GA", vis_dir / "ga.png", m2)
 
-        results.append(result_row("generalization", i, "CPCCD", g1, t1, m1))
-        results.append(result_row("generalization", i, "GA", g2, t2, m2))
+        results.append(result_row("generalization", i, "CPCCD", g1, t1, m1, proxy))
+        results.append(result_row("generalization", i, "GA", g2, t2, m2, proxy))
         g3, t3 = run_nco(env_i, policy, td)
         m3 = evaluate_groups(g3, inst)
         m3["num_parts"] = inst["num_parts"]
         visualize_grouping_solution(inst, g3, "NCO", vis_dir / "nco.png", m3)
-        results.append(result_row("generalization", i, "NCO", g3, t3, m3))
+        results.append(result_row("generalization", i, "NCO", g3, t3, m3, proxy))
 
         print(f"[generalization {i + 1}/{num_instances}] done | num_parts={sampled_num_parts}")
 
@@ -554,6 +614,11 @@ def save_results(results, filename):
             "instance_type",
             "instance_id",
             "num_parts",
+            "compat_density",
+            "feasible_pair_proxy",
+            "feasible_triple_proxy",
+            "feasible_quad_proxy",
+            "max_pairwise_clique_size",
             "method",
             "grouping",
             "groups",
@@ -570,6 +635,11 @@ def save_results(results, filename):
                 row["instance_type"],
                 row["instance_id"],
                 row.get("num_parts", ""),
+                row.get("compat_density", ""),
+                row.get("feasible_pair_proxy", ""),
+                row.get("feasible_triple_proxy", ""),
+                row.get("feasible_quad_proxy", ""),
+                row.get("max_pairwise_clique_size", ""),
                 row["method"],
                 row["grouping"],
                 row["groups"],
@@ -812,22 +882,22 @@ def main():
     device = "cpu"
 
     generator_params = dict(
-        num_parts=4,
+        num_parts=8,
         max_num_parts=10,
-        material_types=3,
-        p_relative_motion=0.05,
-        p_extra_edge=0.30,
+        material_types=1,
+        p_relative_motion=0.01,
+        p_extra_edge=0.80,
         L_low=5.0,
         L_high=160.0,
         W_low=5.0,
         W_high=70.0,
         H_low=0.5,
         H_high=30.0,
-        build_limit_L=260.0,
-        build_limit_W=120.0,
-        build_limit_H=80.0,
-        p_maint_H=0.10,
-        p_standard=0.02,
+        build_limit_L=1600.0,
+        build_limit_W=700.0,
+        build_limit_H=300.0,
+        p_maint_H=0.01,
+        p_standard=0.01,
     )
 
     gen = FPIGenerator(**generator_params)
@@ -845,7 +915,7 @@ def main():
     gen_results = run_generalization(
         env,
         policy,
-        num_instances=500,
+        num_instances=10,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )
