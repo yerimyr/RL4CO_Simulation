@@ -34,12 +34,12 @@ class FPIGeneratorParams:
 
     # topology generation
     topology_mode: str = "mixed"
-    p_chain: float = 0.15
-    p_star: float = 0.15
-    p_tree: float = 0.20
-    p_two_module_bridge: float = 0.20
-    p_dense_clustered: float = 0.15
-    p_sparse_random: float = 0.15
+    p_chain: float = 0.02
+    p_star: float = 0.02
+    p_tree: float = 0.06
+    p_two_module_bridge: float = 0.60
+    p_dense_clustered: float = 0.60
+    p_sparse_random: float = 0.05
 
     # build limits
     build_limit_L: float = 360.0
@@ -256,7 +256,10 @@ class FPIGenerator:
             valid_part_mask[b, 1 : n + 1] = True
 
             eye = torch.eye(n, dtype=torch.bool, device=device)
-            sampled_material_types = int(torch.randint(1, self.p.material_types + 1, (1,), device=device).item())
+            # Keep the material regime fixed across instances so the policy can
+            # learn reusable structural patterns instead of chasing a shifting
+            # number-of-material-types distribution.
+            sampled_material_types = int(self.p.material_types)
             material_type_count[b] = sampled_material_types
             material = torch.randint(0, sampled_material_types, (n,), device=device)
 

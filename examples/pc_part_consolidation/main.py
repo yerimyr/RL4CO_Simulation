@@ -884,20 +884,20 @@ def main():
     generator_params = dict(
         num_parts=8,
         max_num_parts=10,
-        material_types=1,
-        p_relative_motion=0.01,
-        p_extra_edge=0.80,
-        L_low=5.0,
-        L_high=160.0,
-        W_low=5.0,
-        W_high=70.0,
-        H_low=0.5,
-        H_high=30.0,
-        build_limit_L=1600.0,
-        build_limit_W=700.0,
-        build_limit_H=300.0,
-        p_maint_H=0.01,
-        p_standard=0.01,
+        material_types=2,
+        p_relative_motion=0.005,
+        p_extra_edge=0.75,
+        L_low=20.0,
+        L_high=120.0,
+        W_low=10.0,
+        W_high=55.0,
+        H_low=2.0,
+        H_high=24.0,
+        build_limit_L=450.0,
+        build_limit_W=200.0,
+        build_limit_H=100.0,
+        p_maint_H=0.002,
+        p_standard=0.001,
     )
 
     gen = FPIGenerator(**generator_params)
@@ -915,7 +915,7 @@ def main():
     gen_results = run_generalization(
         env,
         policy,
-        num_instances=500,
+        num_instances=10,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )
