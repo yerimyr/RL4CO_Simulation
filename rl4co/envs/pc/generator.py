@@ -34,12 +34,12 @@ class FPIGeneratorParams:
 
     # topology generation
     topology_mode: str = "mixed"
-    p_chain: float = 0.02
-    p_star: float = 0.02
-    p_tree: float = 0.06
-    p_two_module_bridge: float = 0.60
+    p_chain: float = 0.0
+    p_star: float = 0.0
+    p_tree: float = 0.05
+    p_two_module_bridge: float = 0.35
     p_dense_clustered: float = 0.60
-    p_sparse_random: float = 0.05
+    p_sparse_random: float = 0.0
 
     # build limits
     build_limit_L: float = 360.0
@@ -161,16 +161,21 @@ class FPIGenerator:
         for group in (left, right):
             for i in range(len(group)):
                 for j in range(i + 1, len(group)):
-                    if not adj[group[i], group[j]] and torch.rand(1, device=device).item() < 0.65:
+                    if not adj[group[i], group[j]] and torch.rand(1, device=device).item() < 0.92:
                         self._add_undirected_edge(adj, group[i], group[j])
 
         self._add_undirected_edge(adj, left[-1], right[0])
+        for i in left:
+            for j in right:
+                if not adj[i, j] and torch.rand(1, device=device).item() < 0.22:
+                    self._add_undirected_edge(adj, i, j)
         return adj
 
     def _build_dense_clustered_adjacency(self, n: int, device: torch.device) -> torch.Tensor:
         adj = torch.zeros((n, n), dtype=torch.bool, device=device)
         order = torch.randperm(n, device=device).tolist()
-        num_clusters = 3 if n >= 6 else 2
+        # Use fewer, larger clusters so valid triple/quad groups can actually form.
+        num_clusters = 2
         splits = np.array_split(order, num_clusters)
         clusters = [
             list(map(int, split.tolist() if hasattr(split, "tolist") else split))
@@ -182,13 +187,17 @@ class FPIGenerator:
             self._connect_sequence(adj, cluster)
             for i in range(len(cluster)):
                 for j in range(i + 1, len(cluster)):
-                    if not adj[cluster[i], cluster[j]] and torch.rand(1, device=device).item() < 0.85:
+                    if not adj[cluster[i], cluster[j]] and torch.rand(1, device=device).item() < 0.98:
                         self._add_undirected_edge(adj, cluster[i], cluster[j])
 
         for idx in range(len(clusters) - 1):
             self._add_undirected_edge(adj, clusters[idx][-1], clusters[idx + 1][0])
-            if torch.rand(1, device=device).item() < 0.20:
+            if torch.rand(1, device=device).item() < 0.80:
                 self._add_undirected_edge(adj, clusters[idx][0], clusters[idx + 1][-1])
+            for src in clusters[idx]:
+                for dst in clusters[idx + 1]:
+                    if not adj[src, dst] and torch.rand(1, device=device).item() < 0.32:
+                        self._add_undirected_edge(adj, src, dst)
         return adj
 
     def _build_sparse_random_connected_adjacency(self, n: int, device: torch.device) -> torch.Tensor:

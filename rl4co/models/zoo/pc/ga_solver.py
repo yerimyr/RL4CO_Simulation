@@ -28,11 +28,13 @@ class GASolver:
         self,
         pop_size: int = 120,
         generations: int = 300,
-        elite_size: int = 12,
+        elite_size: int = 0,
         tournament_size: int = 2,
         mutation_rate: float = 0.05,
-        init_new_group_bias: float = 0.35,
+        init_new_group_bias: float = 0.60,
         enable_post_merge_repair: bool = False,
+        exploratory_mutation_prob: float = 0.25,
+        init_diverse_fraction: float = 0.70,
         seed: int | None = None,
     ):
         self.pop_size = int(pop_size)
@@ -42,12 +44,17 @@ class GASolver:
         self.mutation_rate = float(mutation_rate)
         self.init_new_group_bias = float(init_new_group_bias)
         self.enable_post_merge_repair = bool(enable_post_merge_repair)
+        self.exploratory_mutation_prob = float(exploratory_mutation_prob)
+        self.init_diverse_fraction = float(init_diverse_fraction)
         self.rng = random.Random(seed)
         self.last_best_score: float | None = None
         self.last_generation_best_scores: list[float] = []
         self.last_generation_mean_scores: list[float] = []
         self.last_generation_best_raw_scores: list[float] = []
         self.last_generation_mean_raw_scores: list[float] = []
+        self.last_generation_unique_raw_score_counts: list[int] = []
+        self.last_generation_unique_grouping_counts: list[int] = []
+        self.last_generation_best_grouping_changed: list[int] = []
         self.score_weights = dict(DEFAULT_SCORE_WEIGHTS)
 
     @staticmethod
@@ -69,13 +76,13 @@ class GASolver:
 
     @staticmethod
     def _elite_size_for_pop_size(pop_size: int) -> int:
-        return max(1, int(round(pop_size * 0.10)))
+        return max(0, int(round(pop_size * 0.10)))
 
     def solve(self, inst):
         start = time.time()
         n = int(inst["num_parts"])
-        effective_pop_size = self._pop_size_for_num_parts(n)
-        effective_elite_size = self._elite_size_for_pop_size(effective_pop_size)
+        effective_pop_size = max(1, self.pop_size)
+        effective_elite_size = min(max(0, self.elite_size), effective_pop_size)
         toolbox = self._build_toolbox(inst, n)
         pop = toolbox.population(n=effective_pop_size)
         self._evaluate_invalid(pop, toolbox)
@@ -86,10 +93,14 @@ class GASolver:
         best_idx = int(np.argmax(scores))
         best_sol = self._as_array(pop[best_idx]).copy()
         best_score = float(scores[best_idx])
+        best_grouping_key = self._solution_key(best_sol)
         self.last_generation_best_scores = [best_score]
         self.last_generation_mean_scores = [float(np.mean(scores))]
         self.last_generation_best_raw_scores = [float(np.max(raw_scores))]
         self.last_generation_mean_raw_scores = [float(np.mean(raw_scores))]
+        self.last_generation_unique_raw_score_counts = [self._count_unique_raw_scores(raw_scores)]
+        self.last_generation_unique_grouping_counts = [self._count_unique_groupings(pop)]
+        self.last_generation_best_grouping_changed = [0]
 
         cxpb = 0.9
         for _ in range(self.generations):
@@ -119,13 +130,19 @@ class GASolver:
 
             gen_best_idx = int(np.argmax(scores))
             gen_best_score = float(scores[gen_best_idx])
+            gen_best_sol = self._as_array(pop[gen_best_idx]).copy()
+            gen_best_grouping_key = self._solution_key(gen_best_sol)
             self.last_generation_best_scores.append(gen_best_score)
             self.last_generation_mean_scores.append(float(np.mean(scores)))
             self.last_generation_best_raw_scores.append(float(np.max(raw_scores)))
             self.last_generation_mean_raw_scores.append(float(np.mean(raw_scores)))
+            self.last_generation_unique_raw_score_counts.append(self._count_unique_raw_scores(raw_scores))
+            self.last_generation_unique_grouping_counts.append(self._count_unique_groupings(pop))
+            self.last_generation_best_grouping_changed.append(int(gen_best_grouping_key != best_grouping_key))
             if gen_best_score > best_score:
                 best_score = gen_best_score
-                best_sol = self._as_array(pop[gen_best_idx]).copy()
+                best_sol = gen_best_sol
+            best_grouping_key = gen_best_grouping_key
 
         self.last_best_score = best_score
         end = time.time()
@@ -147,7 +164,10 @@ class GASolver:
         return toolbox
 
     def _make_individual(self, inst, n: int):
-        sol = self._random_solution(inst)
+        if self.rng.random() < self.init_diverse_fraction:
+            sol = self._random_solution_diverse(inst)
+        else:
+            sol = self._random_solution(inst)
         return creator.PCIndividual(sol.tolist())
 
     def _evaluate_invalid(self, pop, toolbox) -> None:
@@ -159,20 +179,22 @@ class GASolver:
         return (self._fitness(self._as_array(ind), inst),)
 
     def _mate_individuals(self, ind1, ind2, n: int, inst):
-        child1 = self._repair(self._crossover(self._as_array(ind1), self._as_array(ind2), n), inst)
-        child2 = self._repair(self._crossover(self._as_array(ind2), self._as_array(ind1), n), inst)
-        if not self._solution_feasible(child1, inst):
-            child1 = self._as_array(ind1)
-        if not self._solution_feasible(child2, inst):
-            child2 = self._as_array(ind2)
+        child1 = self._stabilize_child(
+            self._crossover(self._as_array(ind1), self._as_array(ind2), n),
+            self._as_array(ind1),
+            inst,
+        )
+        child2 = self._stabilize_child(
+            self._crossover(self._as_array(ind2), self._as_array(ind1), n),
+            self._as_array(ind2),
+            inst,
+        )
         ind1[:] = child1.tolist()
         ind2[:] = child2.tolist()
         return ind1, ind2
 
     def _mutate_individual(self, ind, inst):
-        child = self._repair(self._mutate(self._as_array(ind), inst), inst)
-        if not self._solution_feasible(child, inst):
-            child = self._as_array(ind)
+        child = self._stabilize_child(self._mutate(self._as_array(ind), inst), self._as_array(ind), inst)
         ind[:] = child.tolist()
         return (ind,)
 
@@ -207,7 +229,55 @@ class GASolver:
         if show:
             plt.show()
         plt.close(fig)
+        diagnostics_path = save_path.replace(".png", "_diagnostics.png")
+        self.plot_diagnostics_history(diagnostics_path, show=show)
         return save_path
+
+    def plot_diagnostics_history(self, save_path: str = "ga_fitness_diagnostics.png", show: bool = False) -> str:
+        if not self.last_generation_best_scores:
+            raise RuntimeError("No GA fitness history available. Run solve(...) first.")
+
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        generations = list(range(len(self.last_generation_best_scores)))
+        fig, axes = plt.subplots(3, 1, figsize=(7.5, 8.0), sharex=True)
+
+        axes[0].plot(generations, self.last_generation_unique_raw_score_counts, linewidth=1.8)
+        axes[0].set_ylabel("Unique Raw")
+        axes[0].set_title("GA Diagnostics by Generation")
+        axes[0].grid(True, alpha=0.3)
+
+        axes[1].plot(generations, self.last_generation_unique_grouping_counts, linewidth=1.8)
+        axes[1].set_ylabel("Unique Groupings")
+        axes[1].grid(True, alpha=0.3)
+
+        axes[2].step(generations, self.last_generation_best_grouping_changed, where="mid", linewidth=1.8)
+        axes[2].set_xlabel("Generation")
+        axes[2].set_ylabel("Best Changed")
+        axes[2].grid(True, alpha=0.3)
+
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=150)
+        if show:
+            plt.show()
+        plt.close(fig)
+        return save_path
+
+    def _stabilize_child(self, child: np.ndarray, fallback_parent: np.ndarray, inst) -> np.ndarray:
+        candidate = self._repair(self._canonicalize(child), inst)
+        if self._solution_feasible(candidate, inst):
+            return candidate
+
+        for _ in range(3):
+            exploratory = self._repair(self._mutate_relaxed(candidate), inst)
+            if self._solution_feasible(exploratory, inst):
+                return exploratory
+            candidate = exploratory
+
+        return self._as_array(fallback_parent)
 
     def _random_solution(self, inst) -> np.ndarray:
         n = int(inst["num_parts"])
@@ -235,6 +305,26 @@ class GASolver:
 
         return self._encode(groups, n)
 
+    def _random_solution_diverse(self, inst) -> np.ndarray:
+        n = int(inst["num_parts"])
+        groups: list[list[int]] = []
+        order = list(range(n))
+        self.rng.shuffle(order)
+
+        for node in order:
+            if not groups or self.rng.random() < 0.55:
+                groups.append([node])
+                continue
+
+            target_idx = self.rng.randrange(len(groups))
+            groups[target_idx].append(node)
+
+        sol = self._encode(groups, n)
+        repaired = self._repair(self._canonicalize(sol), inst)
+        if self._solution_feasible(repaired, inst):
+            return repaired
+        return self._random_solution(inst)
+
     def _fitness(self, sol, inst) -> float:
         groups = self._decode(sol)
         metrics = evaluate_groups(groups, inst)
@@ -253,6 +343,15 @@ class GASolver:
         scored = score_metric_rows(rows, weights=self.score_weights)
         scored.sort(key=lambda x: x["idx"])
         return [float(row["score"]) for row in scored]
+
+    def _count_unique_raw_scores(self, raw_scores: list[float]) -> int:
+        return len({round(float(score), 12) for score in raw_scores})
+
+    def _solution_key(self, sol: np.ndarray) -> tuple[int, ...]:
+        return tuple(self._canonicalize(self._as_array(sol)).tolist())
+
+    def _count_unique_groupings(self, pop) -> int:
+        return len({self._solution_key(self._as_array(ind)) for ind in pop})
 
     def _group_penalty(self, group: list[int], inst) -> float:
         penalty = 0.0
@@ -326,16 +425,48 @@ class GASolver:
 
     def _mutate(self, sol: np.ndarray, inst) -> np.ndarray:
         child = sol.copy()
-        if self.rng.random() > self.mutation_rate:
-            return child
+
+        if self.rng.random() < self.exploratory_mutation_prob:
+            return self._mutate_relaxed(child)
 
         feasible_candidates = self._collect_feasible_mutation_candidates(child, inst)
         valid_ops = [op for op, candidates in feasible_candidates.items() if candidates]
         if not valid_ops:
-            return child
+            return self._mutate_relaxed(child)
 
         op = self.rng.choice(valid_ops)
         return self.rng.choice(feasible_candidates[op])
+
+    def _mutate_relaxed(self, sol: np.ndarray) -> np.ndarray:
+        child = self._canonicalize(sol.copy())
+        groups = self._decode(child)
+        n = len(child)
+        op = self.rng.choice(["move", "merge", "split"])
+
+        if op == "move" and len(groups) >= 2:
+            node = self.rng.randrange(n)
+            current_gid = int(child[node])
+            candidate_gids = [gid for gid in range(len(groups)) if gid != current_gid]
+            if candidate_gids:
+                child[node] = self.rng.choice(candidate_gids)
+                return self._canonicalize(child)
+
+        if op == "merge" and len(groups) >= 2:
+            gid_a, gid_b = sorted(self.rng.sample(range(len(groups)), 2))
+            for node in groups[gid_b]:
+                child[node] = gid_a
+            return self._canonicalize(child)
+
+        large_groups = [group for group in groups if len(group) >= 2]
+        if large_groups:
+            group = self.rng.choice(large_groups)
+            cut = self.rng.randrange(1, len(group))
+            new_gid = int(child.max()) + 1
+            for node in group[cut:]:
+                child[node] = new_gid
+            return self._canonicalize(child)
+
+        return child
 
     def _collect_feasible_mutation_candidates(self, sol: np.ndarray, inst) -> dict[str, list[np.ndarray]]:
         child = self._canonicalize(sol.copy())

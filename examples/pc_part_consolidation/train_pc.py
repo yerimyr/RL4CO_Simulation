@@ -115,20 +115,20 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=8,
+        num_parts=10,
         max_num_parts=10,
-        material_types=2,
+        material_types=1,
         p_relative_motion=0.005,
-        p_extra_edge=0.75,
+        p_extra_edge=0.90,
         L_low=20.0,
         L_high=120.0,
         W_low=10.0,
         W_high=55.0,
         H_low=2,
         H_high=24.0,
-        build_limit_L=260.0,
-        build_limit_W=120.0,
-        build_limit_H=80.0,
+        build_limit_L=1000.0,
+        build_limit_W=1000.0,
+        build_limit_H=500.0,
         p_maint_H=0.002,
         p_standard=0.001,
     )
