@@ -68,7 +68,7 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 128
+    batch_size = 256
     epochs = 100
     lr = 1e-4
     entropy_coef = 0.05
@@ -116,7 +116,7 @@ def main():
     # =========================
     generator_params = dict(
         num_parts=10,
-        max_num_parts=10,
+        max_num_parts=20,
         material_types=1,
         p_relative_motion=0.005,
         p_extra_edge=0.90,

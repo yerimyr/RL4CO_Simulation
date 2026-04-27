@@ -33,7 +33,8 @@ class GASolver:
         mutation_rate: float = 0.05,
         init_new_group_bias: float = 0.60,
         enable_post_merge_repair: bool = False,
-        exploratory_mutation_prob: float = 0.25,
+        exploratory_crossover_prob: float = 0.25,
+        exploratory_mutation_prob: float = 0.0,
         init_diverse_fraction: float = 0.70,
         seed: int | None = None,
     ):
@@ -44,6 +45,7 @@ class GASolver:
         self.mutation_rate = float(mutation_rate)
         self.init_new_group_bias = float(init_new_group_bias)
         self.enable_post_merge_repair = bool(enable_post_merge_repair)
+        self.exploratory_crossover_prob = float(exploratory_crossover_prob)
         self.exploratory_mutation_prob = float(exploratory_mutation_prob)
         self.init_diverse_fraction = float(init_diverse_fraction)
         self.rng = random.Random(seed)
@@ -180,12 +182,12 @@ class GASolver:
 
     def _mate_individuals(self, ind1, ind2, n: int, inst):
         child1 = self._stabilize_child(
-            self._crossover(self._as_array(ind1), self._as_array(ind2), n),
+            self._crossover(self._as_array(ind1), self._as_array(ind2), n, inst),
             self._as_array(ind1),
             inst,
         )
         child2 = self._stabilize_child(
-            self._crossover(self._as_array(ind2), self._as_array(ind1), n),
+            self._crossover(self._as_array(ind2), self._as_array(ind1), n, inst),
             self._as_array(ind2),
             inst,
         )
@@ -400,7 +402,12 @@ class GASolver:
             out[i] = mapping[gid]
         return out
 
-    def _crossover(self, p1: np.ndarray, p2: np.ndarray, n: int) -> np.ndarray:
+    def _crossover(self, p1: np.ndarray, p2: np.ndarray, n: int, inst) -> np.ndarray:
+        if self.rng.random() < self.exploratory_crossover_prob:
+            return self._crossover_exploratory(p1, p2, n)
+        return self._crossover_feasible_aware(p1, p2, n, inst)
+
+    def _crossover_exploratory(self, p1: np.ndarray, p2: np.ndarray, n: int) -> np.ndarray:
         child = p1.copy()
         parent2_groups = self._decode(p2)
         self.rng.shuffle(parent2_groups)
@@ -422,6 +429,57 @@ class GASolver:
                 child[members] = new_gid
 
         return self._canonicalize(child)
+
+    def _crossover_feasible_aware(self, p1: np.ndarray, p2: np.ndarray, n: int, inst) -> np.ndarray:
+        parent1_groups = self._decode(p1)
+        parent2_groups = self._decode(p2)
+        pool = [group[:] for group in parent1_groups] + [group[:] for group in parent2_groups]
+        self.rng.shuffle(pool)
+
+        child_groups: list[list[int]] = []
+        assigned: set[int] = set()
+
+        for group in pool:
+            candidate = [node for node in group if node not in assigned]
+            if not candidate:
+                continue
+            if len(candidate) == 1:
+                child_groups.append(candidate)
+                assigned.update(candidate)
+                continue
+
+            # Try the whole inherited group first.
+            if self._group_feasible(candidate, inst):
+                child_groups.append(sorted(candidate))
+                assigned.update(candidate)
+                continue
+
+            # If the full group is infeasible, greedily keep a feasible subset.
+            feasible_subset: list[int] = []
+            for node in candidate:
+                trial = sorted(feasible_subset + [node])
+                if self._group_feasible(trial, inst):
+                    feasible_subset = trial
+            if feasible_subset:
+                child_groups.append(feasible_subset)
+                assigned.update(feasible_subset)
+
+        remaining = [node for node in range(n) if node not in assigned]
+        self.rng.shuffle(remaining)
+        for node in remaining:
+            feasible_targets = []
+            for idx, group in enumerate(child_groups):
+                trial = sorted(group + [node])
+                if self._group_feasible(trial, inst):
+                    feasible_targets.append(idx)
+            if feasible_targets and self.rng.random() >= self.init_new_group_bias:
+                target_idx = self.rng.choice(feasible_targets)
+                child_groups[target_idx].append(node)
+                child_groups[target_idx].sort()
+            else:
+                child_groups.append([node])
+
+        return self._canonicalize(self._encode(child_groups, n))
 
     def _mutate(self, sol: np.ndarray, inst) -> np.ndarray:
         child = sol.copy()

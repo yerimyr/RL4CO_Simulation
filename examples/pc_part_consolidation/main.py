@@ -882,7 +882,7 @@ def main():
     device = "cpu"
 
     generator_params = dict(
-        num_parts=10,
+        num_parts=8,
         max_num_parts=10,
         material_types=1,
         p_relative_motion=0.005,
