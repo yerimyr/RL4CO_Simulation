@@ -69,7 +69,7 @@ def main():
     # Hyperparameters
     # =========================
     batch_size = 256
-    epochs = 100
+    epochs = 50
     lr = 1e-4
     entropy_coef = 0.05
     grad_clip = 1.0
