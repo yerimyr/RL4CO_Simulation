@@ -47,6 +47,8 @@ class PCPolicy(nn.Module):
         emb_dim: int = 128,
         num_message_passing: int = 3,
         temperature: float = 1.2,
+        num_decoder_layers: int = 2,
+        num_decoder_heads: int = 4,
     ):
         super().__init__()
 
@@ -63,7 +65,18 @@ class PCPolicy(nn.Module):
 
         self.context_proj = nn.Linear(emb_dim, emb_dim, bias=False)
         self.key_proj = nn.Linear(emb_dim, emb_dim, bias=False)
+        self.value_proj = nn.Linear(emb_dim, emb_dim, bias=False)
         self.sep_gate = nn.Linear(emb_dim, 1)
+        self.decoder_token_proj = nn.Linear(emb_dim * 3, emb_dim)
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=emb_dim,
+            nhead=num_decoder_heads,
+            dim_feedforward=emb_dim * 4,
+            dropout=0.0,
+            batch_first=True,
+            activation="gelu",
+        )
+        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_decoder_layers)
         self.logit_bias = nn.Parameter(torch.zeros(1))
 
     def build_dynamic_node_features(self, td: TensorDict) -> torch.Tensor:
@@ -106,14 +119,25 @@ class PCPolicy(nn.Module):
         group_mean = (node_emb * open_group.float().unsqueeze(-1)).sum(dim=1) / denom
 
         sep_emb = node_emb[:, 0, :]
-        context = torch.where(has_open, group_mean, sep_emb)
+        assigned = td["assigned"].float()
+        assigned_denom = assigned.sum(dim=-1, keepdim=True).clamp_min(1.0)
+        assigned_mean = (node_emb * assigned.unsqueeze(-1)).sum(dim=1) / assigned_denom
 
-        query = self.context_proj(context).unsqueeze(1)
+        context = torch.where(has_open, group_mean, sep_emb)
+        decoder_state = torch.cat([sep_emb, context, assigned_mean], dim=-1)
+        tgt = self.decoder_token_proj(decoder_state).unsqueeze(1)
+
+        memory = node_emb
+        decoded = self.decoder(tgt=tgt, memory=memory).squeeze(1)
+
+        query = self.context_proj(decoded).unsqueeze(1)
         keys = self.key_proj(node_emb)
+        values = self.value_proj(node_emb)
         logits = torch.matmul(query, keys.transpose(-1, -2)).squeeze(1)
         logits = logits / (E ** 0.5)
 
-        logits[:, 0] = logits[:, 0] + self.sep_gate(context).squeeze(-1)
+        logits[:, 0] = logits[:, 0] + self.sep_gate(decoded).squeeze(-1)
+        logits = logits + (query * values).sum(dim=-1) * 0.0
         logits = logits + self.logit_bias
         return logits
 
@@ -171,4 +195,6 @@ def make_pc_policy(**kwargs):
         emb_dim=kwargs.get("emb_dim", 128),
         num_message_passing=kwargs.get("num_message_passing", 3),
         temperature=kwargs.get("temperature", 1.2),
+        num_decoder_layers=kwargs.get("num_decoder_layers", 2),
+        num_decoder_heads=kwargs.get("num_decoder_heads", 4),
     )
