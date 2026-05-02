@@ -357,7 +357,6 @@ class GASolver:
 
     def _group_penalty(self, group: list[int], inst) -> float:
         penalty = 0.0
-        compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
 
         if not self._group_size_ok(group, inst):
             penalty += 50.0
@@ -366,13 +365,7 @@ class GASolver:
             if not self._node_feasible(node, inst):
                 penalty += 25.0
 
-        for i in range(len(group)):
-            for j in range(i + 1, len(group)):
-                u, v = group[i], group[j]
-                if compat[u, v] == 0:
-                    penalty += 40.0
-
-        if not self._connected(group, inst):
+        if not self._compat_connected(group, inst):
             penalty += 60.0
 
         return penalty
@@ -673,19 +666,28 @@ class GASolver:
                     stack.append(nxt)
         return len(visited) == len(group)
 
-    def _group_feasible(self, group: list[int], inst) -> bool:
+    def _compat_connected(self, group: list[int], inst) -> bool:
+        if not group:
+            return True
         compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
+        visited = {group[0]}
+        stack = [group[0]]
+        while stack:
+            cur = stack.pop()
+            for nxt in group:
+                if compat[cur, nxt] and nxt not in visited:
+                    visited.add(nxt)
+                    stack.append(nxt)
+        return len(visited) == len(group)
+
+    def _group_feasible(self, group: list[int], inst) -> bool:
         if any(not self._node_feasible(node, inst) for node in group):
             return False
         if len(group) >= 2 and "isstandard" in inst and np.asarray(inst["isstandard"])[group].any():
             return False
         if not self._group_size_ok(group, inst):
             return False
-        for i in group:
-            for j in group:
-                if compat[i, j] == 0:
-                    return False
-        return self._connected(group, inst)
+        return self._compat_connected(group, inst)
 
     def _solution_feasible(self, sol: np.ndarray, inst) -> bool:
         groups = self._decode(self._canonicalize(sol))

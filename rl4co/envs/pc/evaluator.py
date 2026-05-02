@@ -45,19 +45,29 @@ def connected(group: list[int], inst) -> bool:
     return len(visited) == len(group)
 
 
-def group_feasible(group: list[int], inst) -> bool:
+def compat_connected(group: list[int], inst) -> bool:
+    if not group:
+        return True
     compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
+    visited = {group[0]}
+    stack = [group[0]]
+    while stack:
+        cur = stack.pop()
+        for nxt in group:
+            if compat[cur, nxt] and nxt not in visited:
+                visited.add(nxt)
+                stack.append(nxt)
+    return len(visited) == len(group)
+
+
+def group_feasible(group: list[int], inst) -> bool:
     if any(not node_feasible(node, inst) for node in group):
         return False
     if len(group) >= 2 and "isstandard" in inst and np.asarray(inst["isstandard"])[group].any():
         return False
     if not group_size_ok(group, inst):
         return False
-    for i in group:
-        for j in group:
-            if compat[i, j] == 0:
-                return False
-    return connected(group, inst)
+    return compat_connected(group, inst)
 
 
 def internal_strength(group: list[int], inst) -> float:

@@ -354,16 +354,12 @@ class PartConsolidationEnv:
             return False
         if not torch.all(size[group].sum(dim=0) <= build_limit):
             return False
-        for i in group:
-            for j in group:
-                if not bool(compat[i, j].item()):
-                    return False
         visited = {group[0]}
         stack = [group[0]]
         while stack:
             cur = stack.pop()
             for nxt in group:
-                if bool(assembly_adj[cur, nxt].item()) and nxt not in visited:
+                if bool(compat[cur, nxt].item()) and nxt not in visited:
                     visited.add(nxt)
                     stack.append(nxt)
         return len(visited) == len(group)
