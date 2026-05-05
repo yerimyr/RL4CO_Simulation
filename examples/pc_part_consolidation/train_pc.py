@@ -98,6 +98,14 @@ def main():
                     "Multiline",
                     ["eval/R1_internal_strength", "eval/R2_group_ratio"],
                 ],
+                "Train weighted R1 vs R2": [
+                    "Multiline",
+                    ["train/weighted_R1_internal_strength", "train/weighted_R2_group_ratio"],
+                ],
+                "Eval weighted R1 vs R2": [
+                    "Multiline",
+                    ["eval/weighted_R1_internal_strength", "eval/weighted_R2_group_ratio"],
+                ],
             }
         }
     )
@@ -115,7 +123,7 @@ def main():
     # Environment / Model
     # =========================
     generator_params = dict(
-        num_parts=10,
+        num_parts=4,
         max_num_parts=20,
         material_types=1,
         p_relative_motion=0.005,
@@ -193,6 +201,8 @@ def main():
         train_num_parts = td0["num_parts"].to(reward_metrics["num_groups"].device, dtype=torch.float32)
         train_r1 = reward_metrics["normalized_internal_strength"]
         train_r2 = reward_metrics["num_groups"] / torch.clamp(train_num_parts, min=1.0)
+        train_weighted_r1 = env._terminal_reward_weights["normalized_internal_strength"] * train_r1
+        train_weighted_r2 = env._terminal_reward_weights["num_groups"] * train_r2
 
         loss_pg = -(advantage.detach() * logp_sum).mean()
         loss = loss_pg - entropy_coef * entropy_mean
@@ -233,6 +243,8 @@ def main():
         writer.add_scalar("train/feasible_pair_count", reward_metrics["feasible_pair_count"].mean().item(), ep)
         writer.add_scalar("train/R1_internal_strength", train_r1.mean().item(), ep)
         writer.add_scalar("train/R2_group_ratio", train_r2.mean().item(), ep)
+        writer.add_scalar("train/weighted_R1_internal_strength", train_weighted_r1.mean().item(), ep)
+        writer.add_scalar("train/weighted_R2_group_ratio", train_weighted_r2.mean().item(), ep)
 
         if ep % 10 == 0:
             policy.eval()
@@ -250,6 +262,8 @@ def main():
                 eval_num_parts = td_eval["num_parts"].to(eval_metrics["num_groups"].device, dtype=torch.float32)
                 eval_r1 = eval_metrics["normalized_internal_strength"]
                 eval_r2 = eval_metrics["num_groups"] / torch.clamp(eval_num_parts, min=1.0)
+                eval_weighted_r1 = env._terminal_reward_weights["normalized_internal_strength"] * eval_r1
+                eval_weighted_r2 = env._terminal_reward_weights["num_groups"] * eval_r2
 
             avg_eval = reward_eval.mean().item()
 
@@ -263,6 +277,8 @@ def main():
             writer.add_scalar("eval/feasible_pair_count", eval_metrics["feasible_pair_count"].mean().item(), ep)
             writer.add_scalar("eval/R1_internal_strength", eval_r1.mean().item(), ep)
             writer.add_scalar("eval/R2_group_ratio", eval_r2.mean().item(), ep)
+            writer.add_scalar("eval/weighted_R1_internal_strength", eval_weighted_r1.mean().item(), ep)
+            writer.add_scalar("eval/weighted_R2_group_ratio", eval_weighted_r2.mean().item(), ep)
 
             # =========================
             # 🔥 [추가] BEST MODEL 저장
