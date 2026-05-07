@@ -8,8 +8,8 @@ from rl4co.envs.pc.generator import FPIGenerator
 
 
 DEFAULT_GENERATOR_PARAMS = dict(
-    num_parts=15,
-    max_num_parts=15,
+    num_parts=10,
+    max_num_parts=10,
     topology_mode="dense_clustered",
     material_types=1,
     p_relative_motion=0.005,

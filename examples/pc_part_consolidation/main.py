@@ -374,6 +374,19 @@ def compute_search_space_proxy(inst):
     n = int(inst["num_parts"])
     compat = np.asarray(inst["compat"]).astype(bool)
 
+    def is_connected_subset(nodes):
+        if not nodes:
+            return True
+        visited = {nodes[0]}
+        stack = [nodes[0]]
+        while stack:
+            cur = stack.pop()
+            for nxt in nodes:
+                if nxt not in visited and compat[cur, nxt]:
+                    visited.add(nxt)
+                    stack.append(nxt)
+        return len(visited) == len(nodes)
+
     pair_count = 0
     for i in range(n):
         for j in range(i + 1, n):
@@ -387,14 +400,9 @@ def compute_search_space_proxy(inst):
     quad_count = 0
     max_pairwise_clique_size = 1 if n > 0 else 0
 
-    for r in range(3, min(n, 4) + 1):
+    for r in range(2, min(n, 4) + 1):
         for nodes in combinations(range(n), r):
-            ok = True
-            for i, j in combinations(nodes, 2):
-                if not compat[i, j]:
-                    ok = False
-                    break
-            if ok:
+            if is_connected_subset(list(nodes)):
                 if r == 3:
                     triple_count += 1
                 elif r == 4:

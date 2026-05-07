@@ -157,7 +157,7 @@ def main():
     ).to(device)
 
     optimizer = optim.Adam(policy.parameters(), lr=lr)
-    max_steps = gen.num_parts * 2 + 4
+    max_steps = gen.max_num_parts * 2 + 4
 
     # =========================
     # Training Loop
