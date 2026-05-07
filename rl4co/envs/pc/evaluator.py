@@ -45,19 +45,16 @@ def connected(group: list[int], inst) -> bool:
     return len(visited) == len(group)
 
 
-def compat_connected(group: list[int], inst) -> bool:
-    if not group:
-        return True
-    compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
-    visited = {group[0]}
-    stack = [group[0]]
-    while stack:
-        cur = stack.pop()
-        for nxt in group:
-            if compat[cur, nxt] and nxt not in visited:
-                visited.add(nxt)
-                stack.append(nxt)
-    return len(visited) == len(group)
+def no_pairwise_conflict(group: list[int], inst) -> bool:
+    mat_var = np.asarray(inst.get("mat_var", np.zeros_like(inst["assembly_adj"])))
+    maint_diff = np.asarray(inst.get("maint_diff", np.zeros_like(inst["assembly_adj"])))
+    rel_motion = np.asarray(inst.get("rel_motion", np.zeros_like(inst["assembly_adj"])))
+    for i in range(len(group)):
+        for j in range(i + 1, len(group)):
+            a, b = group[i], group[j]
+            if mat_var[a, b] or maint_diff[a, b] or rel_motion[a, b]:
+                return False
+    return True
 
 
 def group_feasible(group: list[int], inst) -> bool:
@@ -67,7 +64,9 @@ def group_feasible(group: list[int], inst) -> bool:
         return False
     if not group_size_ok(group, inst):
         return False
-    return compat_connected(group, inst)
+    if not no_pairwise_conflict(group, inst):
+        return False
+    return connected(group, inst)
 
 
 def internal_strength(group: list[int], inst) -> float:

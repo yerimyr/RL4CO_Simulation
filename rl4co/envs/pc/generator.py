@@ -34,12 +34,12 @@ class FPIGeneratorParams:
 
     # topology generation
     topology_mode: str = "mixed"
-    p_chain: float = 0.0
-    p_star: float = 0.0
-    p_tree: float = 0.05
+    p_chain: float = 0.10
+    p_star: float = 0.10
+    p_tree: float = 0.10
     p_two_module_bridge: float = 0.35
     p_dense_clustered: float = 0.60
-    p_sparse_random: float = 0.0
+    p_sparse_random: float = 0.10
 
     # build limits
     build_limit_L: float = 360.0
@@ -255,9 +255,9 @@ class FPIGenerator:
 
         build_limit = self.build_limit.to(device).unsqueeze(0).repeat(B, 1)
 
-        alpha = 0.4
-        beta = 0.3
-        gamma = 0.8
+        alpha = 0.5
+        beta = 0.5
+        gamma = 0.5
 
         for b in range(B):
             n = int(torch.randint(self.min_num_parts, self.max_num_parts + 1, (1,), device=device).item())

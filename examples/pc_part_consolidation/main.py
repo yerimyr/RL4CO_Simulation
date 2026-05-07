@@ -372,7 +372,18 @@ def np_round(arr, decimals=3):
 
 def compute_search_space_proxy(inst):
     n = int(inst["num_parts"])
-    compat = np.asarray(inst["compat"]).astype(bool)
+    assembly_adj = np.asarray(inst["assembly_adj"]).astype(bool)
+    mat_var = np.asarray(inst["mat_var"]).astype(bool)
+    maint_diff = np.asarray(inst["maint_diff"]).astype(bool)
+    rel_motion = np.asarray(inst["rel_motion"]).astype(bool)
+
+    def has_no_pairwise_conflict(nodes):
+        for i in range(len(nodes)):
+            for j in range(i + 1, len(nodes)):
+                a, b = nodes[i], nodes[j]
+                if mat_var[a, b] or maint_diff[a, b] or rel_motion[a, b]:
+                    return False
+        return True
 
     def is_connected_subset(nodes):
         if not nodes:
@@ -382,7 +393,7 @@ def compute_search_space_proxy(inst):
         while stack:
             cur = stack.pop()
             for nxt in nodes:
-                if nxt not in visited and compat[cur, nxt]:
+                if nxt not in visited and assembly_adj[cur, nxt]:
                     visited.add(nxt)
                     stack.append(nxt)
         return len(visited) == len(nodes)
@@ -390,7 +401,7 @@ def compute_search_space_proxy(inst):
     pair_count = 0
     for i in range(n):
         for j in range(i + 1, n):
-            if compat[i, j]:
+            if assembly_adj[i, j] and not (mat_var[i, j] or maint_diff[i, j] or rel_motion[i, j]):
                 pair_count += 1
 
     total_pairs = n * (n - 1) / 2
@@ -402,7 +413,8 @@ def compute_search_space_proxy(inst):
 
     for r in range(2, min(n, 4) + 1):
         for nodes in combinations(range(n), r):
-            if is_connected_subset(list(nodes)):
+            node_list = list(nodes)
+            if has_no_pairwise_conflict(node_list) and is_connected_subset(node_list):
                 if r == 3:
                     triple_count += 1
                 elif r == 4:

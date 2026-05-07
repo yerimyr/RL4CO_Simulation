@@ -365,7 +365,9 @@ class GASolver:
             if not self._node_feasible(node, inst):
                 penalty += 25.0
 
-        if not self._compat_connected(group, inst):
+        if not self._no_pairwise_conflict(group, inst):
+            penalty += 60.0
+        if not self._connected(group, inst):
             penalty += 60.0
 
         return penalty
@@ -666,19 +668,16 @@ class GASolver:
                     stack.append(nxt)
         return len(visited) == len(group)
 
-    def _compat_connected(self, group: list[int], inst) -> bool:
-        if not group:
-            return True
-        compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
-        visited = {group[0]}
-        stack = [group[0]]
-        while stack:
-            cur = stack.pop()
-            for nxt in group:
-                if compat[cur, nxt] and nxt not in visited:
-                    visited.add(nxt)
-                    stack.append(nxt)
-        return len(visited) == len(group)
+    def _no_pairwise_conflict(self, group: list[int], inst) -> bool:
+        mat_var = np.asarray(inst.get("mat_var", np.zeros_like(inst["assembly_adj"])))
+        maint_diff = np.asarray(inst.get("maint_diff", np.zeros_like(inst["assembly_adj"])))
+        rel_motion = np.asarray(inst.get("rel_motion", np.zeros_like(inst["assembly_adj"])))
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                a, b = group[i], group[j]
+                if mat_var[a, b] or maint_diff[a, b] or rel_motion[a, b]:
+                    return False
+        return True
 
     def _group_feasible(self, group: list[int], inst) -> bool:
         if any(not self._node_feasible(node, inst) for node in group):
@@ -687,7 +686,9 @@ class GASolver:
             return False
         if not self._group_size_ok(group, inst):
             return False
-        return self._compat_connected(group, inst)
+        if not self._no_pairwise_conflict(group, inst):
+            return False
+        return self._connected(group, inst)
 
     def _solution_feasible(self, sol: np.ndarray, inst) -> bool:
         groups = self._decode(self._canonicalize(sol))

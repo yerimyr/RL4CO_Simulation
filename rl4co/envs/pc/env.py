@@ -79,8 +79,10 @@ class PartConsolidationEnv:
         size = td["size"]
         build_limit = td["build_limit"]
         assembly_adj = td["assembly_adj"]
-        compat = td["compat"]
         isstandard = td["isstandard"]
+        mat_var = td["mat_var"]
+        maint_diff = td["maint_diff"]
+        rel_motion = td["rel_motion"]
         valid_part_mask = td.get("valid_part_mask", torch.ones_like(assigned))
 
         B, N = assigned.shape
@@ -112,10 +114,12 @@ class PartConsolidationEnv:
                     candidate = current_group + [node]
                     if self._group_feasible(
                         candidate,
-                        compat[b],
                         size[b],
                         build_limit[b],
                         isstandard[b],
+                        mat_var[b],
+                        maint_diff[b],
+                        rel_motion[b],
                         assembly_adj[b],
                     ):
                         feasible_part[b, node] = True
@@ -149,10 +153,12 @@ class PartConsolidationEnv:
                         continue
                     if self._group_feasible(
                         [node],
-                        compat[b],
                         size[b],
                         build_limit[b],
                         isstandard[b],
+                        mat_var[b],
+                        maint_diff[b],
+                        rel_motion[b],
                         assembly_adj[b],
                     ):
                         mask[b, node] = True
@@ -290,13 +296,25 @@ class PartConsolidationEnv:
         size = td["size"]
         build_limit = td["build_limit"]
         isstandard = td["isstandard"]
+        mat_var = td["mat_var"]
+        maint_diff = td["maint_diff"]
+        rel_motion = td["rel_motion"]
 
         for b, groups_b in enumerate(groups):
             infeasible = False
             for group in groups_b:
                 total_internal_strength[b] += self._group_internal_strength(group, td["W"][b])
                 feasible_pair_count[b] += self._group_feasible_pair_count(group, compat[b])
-                if not self._group_feasible(group, compat[b], size[b], build_limit[b], isstandard[b], td["assembly_adj"][b]):
+                if not self._group_feasible(
+                    group,
+                    size[b],
+                    build_limit[b],
+                    isstandard[b],
+                    mat_var[b],
+                    maint_diff[b],
+                    rel_motion[b],
+                    td["assembly_adj"][b],
+                ):
                     infeasible = True
                     infeasible_groups[b] += 1.0
             infeasible_solution[b] = float(infeasible)
@@ -342,10 +360,12 @@ class PartConsolidationEnv:
     def _group_feasible(
         self,
         group: list[int],
-        compat: torch.Tensor,
         size: torch.Tensor,
         build_limit: torch.Tensor,
         isstandard: torch.Tensor,
+        mat_var: torch.Tensor,
+        maint_diff: torch.Tensor,
+        rel_motion: torch.Tensor,
         assembly_adj: torch.Tensor,
     ) -> bool:
         if not group:
@@ -354,12 +374,17 @@ class PartConsolidationEnv:
             return False
         if not torch.all(size[group].sum(dim=0) <= build_limit):
             return False
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                a, b = group[i], group[j]
+                if bool(mat_var[a, b].item()) or bool(maint_diff[a, b].item()) or bool(rel_motion[a, b].item()):
+                    return False
         visited = {group[0]}
         stack = [group[0]]
         while stack:
             cur = stack.pop()
             for nxt in group:
-                if bool(compat[cur, nxt].item()) and nxt not in visited:
+                if bool(assembly_adj[cur, nxt].item()) and nxt not in visited:
                     visited.add(nxt)
                     stack.append(nxt)
         return len(visited) == len(group)
