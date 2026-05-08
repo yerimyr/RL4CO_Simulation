@@ -902,8 +902,8 @@ def main():
     device = "cpu"
 
     generator_params = dict(
-        num_parts=4,
-        max_num_parts=20,
+        num_parts=10,
+        max_num_parts=10,
         material_types=1,
         p_relative_motion=0.005,
         p_extra_edge=0.90,
@@ -935,7 +935,7 @@ def main():
     gen_results = run_generalization(
         env,
         policy,
-        num_instances=500,
+        num_instances=100,
         min_parts=generator_params["num_parts"],
         max_parts=generator_params["max_num_parts"],
     )
