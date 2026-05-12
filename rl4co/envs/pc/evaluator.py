@@ -6,8 +6,9 @@ import numpy as np
 
 
 DEFAULT_SCORE_WEIGHTS = {
-    "group_ratio": -1.0,
-    "normalized_internal_strength": 1.0,
+    "C_in": 0.5,
+    "C_out": -0.5,
+    "C_grp": -0.5,
 }
 
 
@@ -78,6 +79,42 @@ def internal_strength(group: list[int], inst) -> float:
     return total
 
 
+def internal_edge_count(group: list[int], inst) -> int:
+    adj = np.asarray(inst["assembly_adj"]).astype(bool)
+    count = 0
+    for i in range(len(group)):
+        for j in range(i + 1, len(group)):
+            if adj[group[i], group[j]]:
+                count += 1
+    return count
+
+
+def group_internal_density(group: list[int], inst) -> float:
+    size = len(group)
+    if size <= 1:
+        return 0.0
+    max_edges = size * (size - 1) / 2.0
+    return float(internal_edge_count(group, inst) / max_edges)
+
+
+def group_cut_ratio(group: list[int], inst) -> float:
+    adj = np.asarray(inst["assembly_adj"]).astype(bool)
+    all_nodes = list(range(int(inst["num_parts"])))
+    group_set = set(group)
+
+    cut = 0.0
+    vol = 0.0
+    for i in group:
+        for j in all_nodes:
+            if adj[i, j]:
+                vol += 1.0
+                if j not in group_set:
+                    cut += 1.0
+    if vol <= 0.0:
+        return 0.0
+    return float(cut / vol)
+
+
 def feasible_pair_count(group: list[int], inst) -> int:
     compat = np.asarray(inst.get("compat", np.ones_like(inst["assembly_adj"])))
     count = 0
@@ -103,6 +140,8 @@ def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
     infeasible_groups = 0
     total_internal_strength = 0.0
     total_feasible_pairs = 0
+    total_internal_density = 0.0
+    total_cut_ratio = 0.0
     num_parts = float(inst.get("num_parts", 0.0))
 
     for group in groups:
@@ -110,19 +149,26 @@ def evaluate_groups(groups: list[list[int]], inst) -> dict[str, float]:
         infeasible_groups += int(not feasible)
         total_internal_strength += internal_strength(group, inst)
         total_feasible_pairs += feasible_pair_count(group, inst)
+        total_internal_density += group_internal_density(group, inst)
+        total_cut_ratio += group_cut_ratio(group, inst)
 
     infeasible_solution = int(infeasible_groups > 0 or not check_r3(groups, inst))
+    num_groups = float(len(groups))
     normalized_internal_strength = total_internal_strength / max(float(total_feasible_pairs), 1.0)
-    group_ratio = float(len(groups)) / max(num_parts, 1.0)
+    c_in = total_internal_density / max(num_groups, 1.0)
+    c_out = total_cut_ratio / max(num_groups, 1.0)
+    c_grp = 0.0 if num_parts <= 1.0 else float((num_groups - 1.0) / (num_parts - 1.0))
     return {
         "feasible": float(1 - infeasible_solution),
         "infeasible_solution": float(infeasible_solution),
         "infeasible_groups": float(infeasible_groups),
-        "num_groups": float(len(groups)),
-        "group_ratio": float(group_ratio),
+        "num_groups": num_groups,
         "total_internal_strength": float(total_internal_strength),
         "feasible_pair_count": float(total_feasible_pairs),
         "normalized_internal_strength": float(normalized_internal_strength),
+        "C_in": float(c_in),
+        "C_out": float(c_out),
+        "C_grp": float(c_grp),
     }
 
 
@@ -135,8 +181,13 @@ def _augment_reward_metrics(row: dict) -> dict:
     feasible_pair_count_value = float(out.get("feasible_pair_count", 0.0))
 
     out["num_groups"] = num_groups
-    out["group_ratio"] = num_groups / max(num_parts, 1.0)
     out["normalized_internal_strength"] = total_internal_strength / max(feasible_pair_count_value, 1.0)
+    if "C_in" not in out:
+        out["C_in"] = float(out.get("C_in", 0.0))
+    if "C_out" not in out:
+        out["C_out"] = float(out.get("C_out", 0.0))
+    if "C_grp" not in out:
+        out["C_grp"] = 0.0 if num_parts <= 1.0 else (num_groups - 1.0) / max(num_parts - 1.0, 1.0)
     return out
 
 

@@ -90,21 +90,21 @@ def main():
     writer.add_custom_scalars(
         {
             "Reward Components": {
-                "Train R1 vs R2": [
+                "Train Objective Terms": [
                     "Multiline",
-                    ["train/R1_internal_strength", "train/R2_group_ratio"],
+                    ["train/C_in", "train/C_out", "train/C_grp"],
                 ],
-                "Eval R1 vs R2": [
+                "Eval Objective Terms": [
                     "Multiline",
-                    ["eval/R1_internal_strength", "eval/R2_group_ratio"],
+                    ["eval/C_in", "eval/C_out", "eval/C_grp"],
                 ],
-                "Train weighted R1 vs R2": [
+                "Train weighted objective terms": [
                     "Multiline",
-                    ["train/weighted_R1_internal_strength", "train/weighted_R2_group_ratio"],
+                    ["train/weighted_C_in", "train/weighted_C_out", "train/weighted_C_grp"],
                 ],
-                "Eval weighted R1 vs R2": [
+                "Eval weighted objective terms": [
                     "Multiline",
-                    ["eval/weighted_R1_internal_strength", "eval/weighted_R2_group_ratio"],
+                    ["eval/weighted_C_in", "eval/weighted_C_out", "eval/weighted_C_grp"],
                 ],
             }
         }
@@ -198,11 +198,12 @@ def main():
         logp_sum = logps.sum(dim=1)
         entropy_mean = entropies.mean()
         reward_metrics = env.reward_metrics_from_actions(actions)
-        train_num_parts = td0["num_parts"].to(reward_metrics["num_groups"].device, dtype=torch.float32)
-        train_r1 = reward_metrics["normalized_internal_strength"]
-        train_r2 = reward_metrics["num_groups"] / torch.clamp(train_num_parts, min=1.0)
-        train_weighted_r1 = env._terminal_reward_weights["normalized_internal_strength"] * train_r1
-        train_weighted_r2 = env._terminal_reward_weights["num_groups"] * train_r2
+        train_c_in = reward_metrics["C_in"]
+        train_c_out = reward_metrics["C_out"]
+        train_c_grp = reward_metrics["C_grp"]
+        train_weighted_c_in = env._terminal_reward_weights["C_in"] * train_c_in
+        train_weighted_c_out = env._terminal_reward_weights["C_out"] * train_c_out
+        train_weighted_c_grp = env._terminal_reward_weights["C_grp"] * train_c_grp
 
         loss_pg = -(advantage.detach() * logp_sum).mean()
         loss = loss_pg - entropy_coef * entropy_mean
@@ -241,10 +242,12 @@ def main():
         writer.add_scalar("train/internal_strength", reward_metrics["total_internal_strength"].mean().item(), ep)
         writer.add_scalar("train/normalized_internal_strength", reward_metrics["normalized_internal_strength"].mean().item(), ep)
         writer.add_scalar("train/feasible_pair_count", reward_metrics["feasible_pair_count"].mean().item(), ep)
-        writer.add_scalar("train/R1_internal_strength", train_r1.mean().item(), ep)
-        writer.add_scalar("train/R2_group_ratio", train_r2.mean().item(), ep)
-        writer.add_scalar("train/weighted_R1_internal_strength", train_weighted_r1.mean().item(), ep)
-        writer.add_scalar("train/weighted_R2_group_ratio", train_weighted_r2.mean().item(), ep)
+        writer.add_scalar("train/C_in", train_c_in.mean().item(), ep)
+        writer.add_scalar("train/C_out", train_c_out.mean().item(), ep)
+        writer.add_scalar("train/C_grp", train_c_grp.mean().item(), ep)
+        writer.add_scalar("train/weighted_C_in", train_weighted_c_in.mean().item(), ep)
+        writer.add_scalar("train/weighted_C_out", train_weighted_c_out.mean().item(), ep)
+        writer.add_scalar("train/weighted_C_grp", train_weighted_c_grp.mean().item(), ep)
 
         if ep % 10 == 0:
             policy.eval()
@@ -259,11 +262,12 @@ def main():
                     epsilon=0.0,
                 )
                 eval_metrics = env.reward_metrics_from_actions(actions_eval)
-                eval_num_parts = td_eval["num_parts"].to(eval_metrics["num_groups"].device, dtype=torch.float32)
-                eval_r1 = eval_metrics["normalized_internal_strength"]
-                eval_r2 = eval_metrics["num_groups"] / torch.clamp(eval_num_parts, min=1.0)
-                eval_weighted_r1 = env._terminal_reward_weights["normalized_internal_strength"] * eval_r1
-                eval_weighted_r2 = env._terminal_reward_weights["num_groups"] * eval_r2
+                eval_c_in = eval_metrics["C_in"]
+                eval_c_out = eval_metrics["C_out"]
+                eval_c_grp = eval_metrics["C_grp"]
+                eval_weighted_c_in = env._terminal_reward_weights["C_in"] * eval_c_in
+                eval_weighted_c_out = env._terminal_reward_weights["C_out"] * eval_c_out
+                eval_weighted_c_grp = env._terminal_reward_weights["C_grp"] * eval_c_grp
 
             avg_eval = reward_eval.mean().item()
 
@@ -275,10 +279,12 @@ def main():
             writer.add_scalar("eval/internal_strength", eval_metrics["total_internal_strength"].mean().item(), ep)
             writer.add_scalar("eval/normalized_internal_strength", eval_metrics["normalized_internal_strength"].mean().item(), ep)
             writer.add_scalar("eval/feasible_pair_count", eval_metrics["feasible_pair_count"].mean().item(), ep)
-            writer.add_scalar("eval/R1_internal_strength", eval_r1.mean().item(), ep)
-            writer.add_scalar("eval/R2_group_ratio", eval_r2.mean().item(), ep)
-            writer.add_scalar("eval/weighted_R1_internal_strength", eval_weighted_r1.mean().item(), ep)
-            writer.add_scalar("eval/weighted_R2_group_ratio", eval_weighted_r2.mean().item(), ep)
+            writer.add_scalar("eval/C_in", eval_c_in.mean().item(), ep)
+            writer.add_scalar("eval/C_out", eval_c_out.mean().item(), ep)
+            writer.add_scalar("eval/C_grp", eval_c_grp.mean().item(), ep)
+            writer.add_scalar("eval/weighted_C_in", eval_weighted_c_in.mean().item(), ep)
+            writer.add_scalar("eval/weighted_C_out", eval_weighted_c_out.mean().item(), ep)
+            writer.add_scalar("eval/weighted_C_grp", eval_weighted_c_grp.mean().item(), ep)
 
             # =========================
             # 🔥 [추가] BEST MODEL 저장

@@ -646,6 +646,9 @@ def save_results(results, filename):
             "feasible",
             "infeasible_solution",
             "infeasible_groups",
+            "C_in",
+            "C_out",
+            "C_grp",
             "total_internal_strength",
             "feasible_pair_count",
             "score",
@@ -667,6 +670,9 @@ def save_results(results, filename):
                 row["feasible"],
                 row["infeasible_solution"],
                 row["infeasible_groups"],
+                row.get("C_in", ""),
+                row.get("C_out", ""),
+                row.get("C_grp", ""),
                 row["total_internal_strength"],
                 row["feasible_pair_count"],
                 row["score"],
@@ -685,6 +691,9 @@ def save_results(results, filename):
                 "feasible",
                 "infeasible_solution",
                 "infeasible_groups",
+                "C_in",
+                "C_out",
+                "C_grp",
                 "total_internal_strength",
                 "feasible_pair_count",
                 "score",
@@ -702,12 +711,15 @@ def summarize_results(results):
             "groups": 0.0,
             "time": 0.0,
             "total_time": 0.0,
-            "feasible": 0.0,
-            "infeasible_solution": 0.0,
-            "infeasible_groups": 0.0,
-            "total_internal_strength": 0.0,
-            "feasible_pair_count": 0.0,
-            "score": 0.0,
+                "feasible": 0.0,
+                "infeasible_solution": 0.0,
+                "infeasible_groups": 0.0,
+                "C_in": 0.0,
+                "C_out": 0.0,
+                "C_grp": 0.0,
+                "total_internal_strength": 0.0,
+                "feasible_pair_count": 0.0,
+                "score": 0.0,
             "count": 0,
         }
     )
@@ -723,6 +735,9 @@ def summarize_results(results):
         agg[key]["feasible"] += float(row["feasible"])
         agg[key]["infeasible_solution"] += float(row["infeasible_solution"])
         agg[key]["infeasible_groups"] += float(row["infeasible_groups"])
+        agg[key]["C_in"] += float(row.get("C_in", 0.0))
+        agg[key]["C_out"] += float(row.get("C_out", 0.0))
+        agg[key]["C_grp"] += float(row.get("C_grp", 0.0))
         agg[key]["total_internal_strength"] += float(row["total_internal_strength"])
         agg[key]["feasible_pair_count"] += float(row["feasible_pair_count"])
         agg[key]["score"] += float(row["score"])
@@ -741,6 +756,9 @@ def summarize_results(results):
                 "feasible": vals["feasible"] / count,
                 "infeasible_solution": vals["infeasible_solution"] / count,
                 "infeasible_groups": vals["infeasible_groups"] / count,
+                "C_in": vals["C_in"] / count,
+                "C_out": vals["C_out"] / count,
+                "C_grp": vals["C_grp"] / count,
                 "total_internal_strength": vals["total_internal_strength"] / count,
                 "feasible_pair_count": vals["feasible_pair_count"] / count,
                 "score": vals["score"] / count,

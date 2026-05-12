@@ -35,8 +35,9 @@ class PartConsolidationEnv:
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
         self._terminal_reward_weights = {
-            "num_groups": -1.0,
-            "normalized_internal_strength": 1.0,
+            "C_in": 0.5,
+            "C_out": -0.5,
+            "C_grp": -0.5,
         }
 
     def reset(self, batch_size: int) -> TensorDict:
@@ -237,15 +238,8 @@ class PartConsolidationEnv:
         reward = torch.zeros_like(raw["num_groups"])
         if self._reward_static_td is None:
             raise RuntimeError("reward_from_actions called before env.reset")
-        num_parts = self._reward_static_td.get(
-            "num_parts",
-            torch.full_like(raw["num_groups"], self.N - 1, dtype=torch.float32, device=raw["num_groups"].device),
-        ).to(raw["num_groups"].device, dtype=torch.float32)
         for name, weight in self._terminal_reward_weights.items():
-            value = raw[name]
-            if name == "num_groups":
-                value = value / torch.clamp(num_parts, min=1.0)
-            reward = reward + weight * value
+            reward = reward + weight * raw[name]
         return reward
 
     def reward_metrics_from_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -291,6 +285,8 @@ class PartConsolidationEnv:
         num_groups = torch.tensor([len(g) for g in groups], dtype=torch.float32, device=device)
         total_internal_strength = torch.zeros((B,), dtype=torch.float32, device=device)
         feasible_pair_count = torch.zeros((B,), dtype=torch.float32, device=device)
+        total_internal_density = torch.zeros((B,), dtype=torch.float32, device=device)
+        total_cut_ratio = torch.zeros((B,), dtype=torch.float32, device=device)
 
         compat = td["compat"]
         size = td["size"]
@@ -305,6 +301,8 @@ class PartConsolidationEnv:
             for group in groups_b:
                 total_internal_strength[b] += self._group_internal_strength(group, td["W"][b])
                 feasible_pair_count[b] += self._group_feasible_pair_count(group, compat[b])
+                total_internal_density[b] += self._group_internal_density(group, td["assembly_adj"][b])
+                total_cut_ratio[b] += self._group_cut_ratio(group, td["assembly_adj"][b], int(td["num_parts"][b].item()))
                 if not self._group_feasible(
                     group,
                     size[b],
@@ -321,6 +319,14 @@ class PartConsolidationEnv:
             feasible[b] = float(not infeasible)
 
         normalized_internal_strength = total_internal_strength / torch.clamp(feasible_pair_count, min=1.0)
+        c_in = total_internal_density / torch.clamp(num_groups, min=1.0)
+        c_out = total_cut_ratio / torch.clamp(num_groups, min=1.0)
+        num_parts = td["num_parts"].to(device=device, dtype=torch.float32)
+        c_grp = torch.where(
+            num_parts > 1.0,
+            (num_groups - 1.0) / (num_parts - 1.0),
+            torch.zeros_like(num_groups),
+        )
 
         return {
             "feasible": feasible,
@@ -330,6 +336,9 @@ class PartConsolidationEnv:
             "total_internal_strength": total_internal_strength,
             "feasible_pair_count": feasible_pair_count,
             "normalized_internal_strength": normalized_internal_strength,
+            "C_in": c_in,
+            "C_out": c_out,
+            "C_grp": c_grp,
         }
 
     def _group_internal_strength(self, group: list[int], w: torch.Tensor) -> torch.Tensor:
@@ -345,6 +354,30 @@ class PartConsolidationEnv:
             for j in range(i + 1, len(group)):
                 count = count + float(bool(compat[group[i], group[j]].item()))
         return count
+
+    def _group_internal_density(self, group: list[int], assembly_adj: torch.Tensor) -> torch.Tensor:
+        if len(group) <= 1:
+            return torch.tensor(0.0, device=assembly_adj.device)
+        edge_count = torch.tensor(0.0, device=assembly_adj.device)
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                edge_count = edge_count + float(bool(assembly_adj[group[i], group[j]].item()))
+        max_edges = len(group) * (len(group) - 1) / 2.0
+        return edge_count / max_edges
+
+    def _group_cut_ratio(self, group: list[int], assembly_adj: torch.Tensor, num_parts: int) -> torch.Tensor:
+        group_set = set(group)
+        cut = torch.tensor(0.0, device=assembly_adj.device)
+        vol = torch.tensor(0.0, device=assembly_adj.device)
+        for i in group:
+            for j in range(num_parts):
+                if bool(assembly_adj[i, j].item()):
+                    vol = vol + 1.0
+                    if j not in group_set:
+                        cut = cut + 1.0
+        if float(vol.item()) <= 0.0:
+            return torch.tensor(0.0, device=assembly_adj.device)
+        return cut / vol
 
     def _compute_dead_end(
         self,
