@@ -117,6 +117,7 @@ def main():
     # =========================
     batch_size = 8
     train_samples_per_instance = 128
+    elite_frac = 0.25
     eval_batch_size = 64
     eval_samples_per_instance = 64
     eval_seed = 4321
@@ -241,8 +242,14 @@ def main():
         )
 
         reward_matrix = total_reward.view(batch_size, train_samples_per_instance)
+        logp_sum = logps.sum(dim=1)
+        logp_matrix = logp_sum.view(batch_size, train_samples_per_instance)
         sample_mean_baseline = reward_matrix.mean(dim=1, keepdim=True)
-        advantage = (reward_matrix - sample_mean_baseline).reshape(-1)
+        advantage_matrix = reward_matrix - sample_mean_baseline
+        elite_count = max(1, int(train_samples_per_instance * elite_frac))
+        elite_idx = reward_matrix.topk(elite_count, dim=1).indices
+        elite_advantage = advantage_matrix.gather(1, elite_idx).reshape(-1)
+        elite_logp = logp_matrix.gather(1, elite_idx).reshape(-1)
         best_train_actions, best_train_reward = select_best_actions(
             actions,
             total_reward,
@@ -263,10 +270,9 @@ def main():
                 max_steps=max_steps,
                 sample=False,
                 epsilon=0.0,
-            )
+        )
         policy.train()
 
-        logp_sum = logps.sum(dim=1)
         entropy_mean = entropies.mean()
         env._reward_static_td = td_train.clone()
         reward_metrics = env.reward_metrics_from_actions(actions)
@@ -279,7 +285,7 @@ def main():
         train_weighted_c_out = env._terminal_reward_weights["C_out"] * train_c_out
         train_weighted_c_grp = env._terminal_reward_weights["C_grp"] * train_c_grp
 
-        loss_pg = -(advantage.detach() * logp_sum).mean()
+        loss_pg = -(elite_advantage.detach() * elite_logp).mean()
         loss = loss_pg - entropy_coef * entropy_mean
 
         optimizer.zero_grad()
@@ -306,6 +312,8 @@ def main():
         writer.add_scalar("train/reward_total", total_reward.mean().item(), ep)
         writer.add_scalar("train/reward_sample_mean_baseline", sample_mean_baseline.mean().item(), ep)
         writer.add_scalar("train/reward_sample_best", best_train_reward.mean().item(), ep)
+        writer.add_scalar("train/elite_count", elite_count, ep)
+        writer.add_scalar("train/elite_reward", reward_matrix.gather(1, elite_idx).mean().item(), ep)
         writer.add_scalar("train/reward_greedy", reward_greedy.mean().item(), ep)
         writer.add_scalar("train/unique_grouping_ratio", train_unique_ratio, ep)
         writer.add_scalar("train/loss", loss.item(), ep)
