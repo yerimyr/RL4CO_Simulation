@@ -370,7 +370,7 @@ class PartConsolidationEnv:
         cut = torch.tensor(0.0, device=assembly_adj.device)
         vol = torch.tensor(0.0, device=assembly_adj.device)
         for i in group:
-            for j in range(num_parts):
+            for j in range(1, num_parts + 1):
                 if bool(assembly_adj[i, j].item()):
                     vol = vol + 1.0
                     if j not in group_set:

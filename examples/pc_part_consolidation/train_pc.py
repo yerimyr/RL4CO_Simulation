@@ -32,6 +32,7 @@ def rollout_episode_from_td(
     sample: bool = True,
     epsilon: float = 0.0,
 ):
+    env._reward_static_td = td_init.clone().to(env.device)
     td = td_init.clone().to(env.device)
 
     actions = []
@@ -59,6 +60,26 @@ def rollout_episode_from_td(
     return actions, logps, entropies, terminal_reward, total_reward, td
 
 
+def make_fixed_eval_td(
+    env: PartConsolidationEnv,
+    batch_size: int,
+    seed: int,
+    device: str,
+):
+    cpu_rng_state = torch.random.get_rng_state()
+    cuda_rng_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+
+    try:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        return env.reset(batch_size=batch_size).to(device).clone()
+    finally:
+        torch.random.set_rng_state(cpu_rng_state)
+        if cuda_rng_states is not None:
+            torch.cuda.set_rng_state_all(cuda_rng_states)
+
+
 def main():
     train_start_time = time.time()
 
@@ -68,10 +89,12 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 256
-    epochs = 100
+    batch_size = 20
+    eval_batch_size = 64
+    eval_seed = 4321
+    epochs = 500
     lr = 1e-4
-    entropy_coef = 0.05
+    entropy_coef = 0.10
     grad_clip = 1.0
 
     # Prefer on-policy exploration through entropy regularization.
@@ -127,18 +150,18 @@ def main():
         max_num_parts=10,
         material_types=2,
         p_relative_motion=0.05,
-        p_extra_edge=0.90,
+        p_extra_edge=0.70,
         L_low=20.0,
         L_high=120.0,
         W_low=10.0,
         W_high=55.0,
         H_low=2,
         H_high=24.0,
-        build_limit_L=1000.0,
-        build_limit_W=1000.0,
-        build_limit_H=500.0,
-        p_maint_H=0.02,
-        p_standard=0.01,
+        build_limit_L=360.0,
+        build_limit_W=180.0,
+        build_limit_H=90.0,
+        p_maint_H=0.05,
+        p_standard=0.02,
     )
 
     gen = FPIGenerator(**generator_params)
@@ -158,6 +181,13 @@ def main():
 
     optimizer = optim.Adam(policy.parameters(), lr=lr)
     max_steps = gen.max_num_parts * 2 + 4
+    td_eval_fixed = make_fixed_eval_td(
+        env=env,
+        batch_size=eval_batch_size,
+        seed=eval_seed,
+        device=device,
+    )
+    print(f"Fixed eval batch: size={eval_batch_size}, seed={eval_seed}")
 
     # =========================
     # Training Loop
@@ -252,11 +282,10 @@ def main():
         if ep % 10 == 0:
             policy.eval()
             with torch.no_grad():
-                td_eval = env.reset(batch_size=64).to(device)
                 actions_eval, _, _, reward_eval, _, _ = rollout_episode_from_td(
                     env=env,
                     policy=policy,
-                    td_init=td_eval,
+                    td_init=td_eval_fixed,
                     max_steps=max_steps,
                     sample=False,
                     epsilon=0.0,

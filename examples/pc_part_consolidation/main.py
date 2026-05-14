@@ -922,8 +922,8 @@ def main():
     generator_params = dict(
         num_parts=10,
         max_num_parts=10,
-        material_types=2,
-        p_relative_motion=0.05,
+        material_types=1,
+        p_relative_motion=0.005,
         p_extra_edge=0.90,
         L_low=20.0,
         L_high=120.0,
@@ -934,8 +934,8 @@ def main():
         build_limit_L=1000.0,
         build_limit_W=1000.0,
         build_limit_H=500.0,
-        p_maint_H=0.02,
-        p_standard=0.01,
+        p_maint_H=0.002,
+        p_standard=0.001,
     )
 
     gen = FPIGenerator(**generator_params)
