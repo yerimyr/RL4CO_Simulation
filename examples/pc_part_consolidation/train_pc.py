@@ -80,6 +80,32 @@ def make_fixed_eval_td(
             torch.cuda.set_rng_state_all(cuda_rng_states)
 
 
+def canonical_groups(groups: list[list[int]]) -> tuple[tuple[int, ...], ...]:
+    return tuple(sorted(tuple(sorted(group)) for group in groups if group))
+
+
+def unique_grouping_ratio(groups: list[list[list[int]]], batch_size: int, samples_per_instance: int) -> float:
+    if samples_per_instance <= 1:
+        return 1.0
+
+    ratios = []
+    for idx in range(batch_size):
+        start = idx * samples_per_instance
+        end = start + samples_per_instance
+        unique = {canonical_groups(groups_i) for groups_i in groups[start:end]}
+        ratios.append(len(unique) / float(samples_per_instance))
+    return float(np.mean(ratios))
+
+
+def select_best_actions(actions: torch.Tensor, rewards: torch.Tensor, batch_size: int, samples_per_instance: int):
+    action_view = actions.view(batch_size, samples_per_instance, actions.size(-1))
+    reward_view = rewards.view(batch_size, samples_per_instance)
+    best_reward, best_idx = reward_view.max(dim=1)
+    rows = torch.arange(batch_size, device=actions.device)
+    best_actions = action_view[rows, best_idx]
+    return best_actions, best_reward
+
+
 def main():
     train_start_time = time.time()
 
@@ -89,10 +115,12 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 20
+    batch_size = 8
+    train_samples_per_instance = 128
     eval_batch_size = 64
+    eval_samples_per_instance = 64
     eval_seed = 4321
-    epochs = 500
+    epochs = 1000
     lr = 1e-4
     entropy_coef = 0.10
     grad_clip = 1.0
@@ -176,7 +204,7 @@ def main():
         edge_feat_dim=gen.edge_feat_dim,
         emb_dim=128,
         num_message_passing=3,
-        temperature=1.2,
+        temperature=2.0,
     ).to(device)
 
     optimizer = optim.Adam(policy.parameters(), lr=lr)
@@ -202,16 +230,30 @@ def main():
             epsilon = 0.0
 
         td0 = env.reset(batch_size).to(device)
+        td_train = td0.repeat_interleave(train_samples_per_instance, dim=0)
         actions, logps, entropies, terminal_reward, total_reward, _ = rollout_episode_from_td(
             env=env,
             policy=policy,
-            td_init=td0,
+            td_init=td_train,
             max_steps=max_steps,
             sample=True,
             epsilon=epsilon,
         )
 
-        # greedy baseline
+        reward_matrix = total_reward.view(batch_size, train_samples_per_instance)
+        sample_mean_baseline = reward_matrix.mean(dim=1, keepdim=True)
+        advantage = (reward_matrix - sample_mean_baseline).reshape(-1)
+        best_train_actions, best_train_reward = select_best_actions(
+            actions,
+            total_reward,
+            batch_size=batch_size,
+            samples_per_instance=train_samples_per_instance,
+        )
+        groups = env.actions_to_groups(actions, N=gen.num_nodes)
+        train_unique_ratio = unique_grouping_ratio(groups, batch_size, train_samples_per_instance)
+
+        # Greedy is logged as a reference only. The policy gradient baseline is
+        # the per-instance mean over sampled solutions above.
         policy.eval()
         with torch.no_grad():
             _, _, _, reward_greedy, _, _ = rollout_episode_from_td(
@@ -224,10 +266,12 @@ def main():
             )
         policy.train()
 
-        advantage = total_reward - reward_greedy
         logp_sum = logps.sum(dim=1)
         entropy_mean = entropies.mean()
+        env._reward_static_td = td_train.clone()
         reward_metrics = env.reward_metrics_from_actions(actions)
+        env._reward_static_td = td0.clone()
+        best_train_metrics = env.reward_metrics_from_actions(best_train_actions)
         train_c_in = reward_metrics["C_in"]
         train_c_out = reward_metrics["C_out"]
         train_c_grp = reward_metrics["C_grp"]
@@ -253,7 +297,6 @@ def main():
                 "optimizer": optimizer.state_dict(),
             }, save_dir / f"pc_model_ep{ep}.pt")
 
-        groups = env.actions_to_groups(actions, N=gen.num_nodes)
         avg_group_count = float(np.mean([len(g) for g in groups]))
         avg_group_size = float(
             np.mean([np.mean([len(x) for x in g]) if len(g) > 0 else 0.0 for g in groups])
@@ -261,7 +304,10 @@ def main():
         avg_terminal_reward = terminal_reward.mean().item()
 
         writer.add_scalar("train/reward_total", total_reward.mean().item(), ep)
+        writer.add_scalar("train/reward_sample_mean_baseline", sample_mean_baseline.mean().item(), ep)
+        writer.add_scalar("train/reward_sample_best", best_train_reward.mean().item(), ep)
         writer.add_scalar("train/reward_greedy", reward_greedy.mean().item(), ep)
+        writer.add_scalar("train/unique_grouping_ratio", train_unique_ratio, ep)
         writer.add_scalar("train/loss", loss.item(), ep)
         writer.add_scalar("train/entropy", entropy_mean.item(), ep)
         writer.add_scalar("train/epsilon", epsilon, ep)
@@ -278,11 +324,15 @@ def main():
         writer.add_scalar("train/weighted_C_in", train_weighted_c_in.mean().item(), ep)
         writer.add_scalar("train/weighted_C_out", train_weighted_c_out.mean().item(), ep)
         writer.add_scalar("train/weighted_C_grp", train_weighted_c_grp.mean().item(), ep)
+        writer.add_scalar("train_best/num_groups", best_train_metrics["num_groups"].mean().item(), ep)
+        writer.add_scalar("train_best/C_in", best_train_metrics["C_in"].mean().item(), ep)
+        writer.add_scalar("train_best/C_out", best_train_metrics["C_out"].mean().item(), ep)
+        writer.add_scalar("train_best/C_grp", best_train_metrics["C_grp"].mean().item(), ep)
 
         if ep % 10 == 0:
             policy.eval()
             with torch.no_grad():
-                actions_eval, _, _, reward_eval, _, _ = rollout_episode_from_td(
+                actions_eval_greedy, _, _, reward_eval_greedy, _, _ = rollout_episode_from_td(
                     env=env,
                     policy=policy,
                     td_init=td_eval_fixed,
@@ -290,6 +340,29 @@ def main():
                     sample=False,
                     epsilon=0.0,
                 )
+                td_eval_sample = td_eval_fixed.repeat_interleave(eval_samples_per_instance, dim=0)
+                actions_eval_sample, _, _, reward_eval_sample, _, _ = rollout_episode_from_td(
+                    env=env,
+                    policy=policy,
+                    td_init=td_eval_sample,
+                    max_steps=max_steps,
+                    sample=True,
+                    epsilon=0.0,
+                )
+                actions_eval, reward_eval = select_best_actions(
+                    actions_eval_sample,
+                    reward_eval_sample,
+                    batch_size=eval_batch_size,
+                    samples_per_instance=eval_samples_per_instance,
+                )
+                eval_sample_groups = env.actions_to_groups(actions_eval_sample, N=gen.num_nodes)
+                eval_unique_ratio = unique_grouping_ratio(
+                    eval_sample_groups,
+                    eval_batch_size,
+                    eval_samples_per_instance,
+                )
+
+                env._reward_static_td = td_eval_fixed.clone()
                 eval_metrics = env.reward_metrics_from_actions(actions_eval)
                 eval_c_in = eval_metrics["C_in"]
                 eval_c_out = eval_metrics["C_out"]
@@ -299,8 +372,12 @@ def main():
                 eval_weighted_c_grp = env._terminal_reward_weights["C_grp"] * eval_c_grp
 
             avg_eval = reward_eval.mean().item()
+            avg_eval_greedy = reward_eval_greedy.mean().item()
 
             writer.add_scalar("eval/reward_total", avg_eval, ep)
+            writer.add_scalar("eval/reward_sample_best", avg_eval, ep)
+            writer.add_scalar("eval/reward_greedy", avg_eval_greedy, ep)
+            writer.add_scalar("eval/unique_grouping_ratio", eval_unique_ratio, ep)
             writer.add_scalar("eval/feasible_ratio", eval_metrics["feasible"].mean().item(), ep)
             writer.add_scalar("eval/infeasible_solution", eval_metrics["infeasible_solution"].mean().item(), ep)
             writer.add_scalar("eval/infeasible_groups", eval_metrics["infeasible_groups"].mean().item(), ep)
@@ -333,11 +410,14 @@ def main():
             print(
                 f"[{ep:5d}] "
                 f"train_total={total_reward.mean().item():.4f} "
+                f"train_best={best_train_reward.mean().item():.4f} "
                 f"eval_total={avg_eval:.4f} "
+                f"eval_greedy={avg_eval_greedy:.4f} "
                 f"train_feasible={reward_metrics['feasible'].mean().item():.3f} "
                 f"eval_feasible={eval_metrics['feasible'].mean().item():.3f} "
                 f"loss={loss.item():.4f} "
                 f"entropy={entropy_mean.item():.4f} "
+                f"unique={train_unique_ratio:.3f} "
                 f"avg_group_count={avg_group_count:.2f} "
                 f"avg_group_size={avg_group_size:.2f} "
                 f"eps={epsilon:.3f}"
