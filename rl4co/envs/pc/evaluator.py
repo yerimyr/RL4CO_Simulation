@@ -8,7 +8,7 @@ import numpy as np
 DEFAULT_SCORE_WEIGHTS = {
     "C_in": 0.5,
     "C_out": -0.5,
-    "C_grp": -0.5,
+    "C_grp": -0.25,
 }
 
 
