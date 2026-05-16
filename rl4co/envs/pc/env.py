@@ -34,11 +34,7 @@ class PartConsolidationEnv:
         self.N = self.generator.num_nodes
         self.F = self.generator.node_feat_dim
         self._reward_static_td: TensorDict | None = None
-        self._terminal_reward_weights = {
-            "C_in": 0.5,
-            "C_out": -0.5,
-            "C_grp": -0.5,
-        }
+        self._reward_eps = 1e-8
 
     def reset(self, batch_size: int) -> TensorDict:
         td = self.generator(batch_size=batch_size, device=self.device)
@@ -235,12 +231,23 @@ class PartConsolidationEnv:
 
     def reward_from_actions(self, actions: torch.Tensor) -> torch.Tensor:
         raw = self.reward_metrics_from_actions(actions)
-        reward = torch.zeros_like(raw["num_groups"])
         if self._reward_static_td is None:
             raise RuntimeError("reward_from_actions called before env.reset")
-        for name, weight in self._terminal_reward_weights.items():
-            reward = reward + weight * raw[name]
-        return reward
+        return self._terminal_reward_score(raw)
+
+    def _terminal_reward_score(self, raw: dict[str, torch.Tensor]) -> torch.Tensor:
+        reward_c_in, reward_c_out, reward_c_grp = self._terminal_reward_terms(raw)
+        return reward_c_in + reward_c_out + reward_c_grp
+
+    def _terminal_reward_terms(self, raw: dict[str, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        c_in = raw["C_in"]
+        c_out = raw["C_out"]
+        c_grp = raw["C_grp"]
+        denom = torch.clamp(c_in + c_out + c_grp, min=self._reward_eps)
+        lambda_in = c_in / denom
+        lambda_out = c_out / denom
+        lambda_grp = c_grp / denom
+        return lambda_in * c_in, -lambda_out * c_out, -lambda_grp * c_grp
 
     def reward_metrics_from_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
         groups = self.actions_to_groups(actions, N=self.N)

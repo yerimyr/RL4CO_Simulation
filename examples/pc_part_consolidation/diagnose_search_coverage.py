@@ -81,9 +81,7 @@ def enumerate_feasible_groups(env: PartConsolidationEnv, td) -> dict[int, list[t
 def score_partition(env: PartConsolidationEnv, groups: list[list[int]]) -> tuple[float, dict[str, float]]:
     metrics_t = env._terminal_reward_components([groups], device=env.device)
     metrics = {key: float(value[0].item()) for key, value in metrics_t.items()}
-    score = 0.0
-    for name, weight in env._terminal_reward_weights.items():
-        score += weight * metrics[name]
+    score = env._terminal_reward_score(metrics_t)[0].item()
     return float(score), metrics
 
 

@@ -9,7 +9,6 @@ from deap import base
 from deap import creator
 from deap import tools
 
-from rl4co.envs.pc.evaluator import DEFAULT_SCORE_WEIGHTS
 from rl4co.envs.pc.evaluator import evaluate_groups
 from rl4co.envs.pc.evaluator import score_metric_rows
 
@@ -57,7 +56,7 @@ class GASolver:
         self.last_generation_unique_raw_score_counts: list[int] = []
         self.last_generation_unique_grouping_counts: list[int] = []
         self.last_generation_best_grouping_changed: list[int] = []
-        self.score_weights = dict(DEFAULT_SCORE_WEIGHTS)
+        self.score_weights = None
 
     @staticmethod
     def _pop_size_for_num_parts(n: int) -> int:
@@ -330,9 +329,7 @@ class GASolver:
     def _fitness(self, sol, inst) -> float:
         groups = self._decode(sol)
         metrics = evaluate_groups(groups, inst)
-        return float(
-            sum(float(weight) * float(metrics[field]) for field, weight in self.score_weights.items())
-        )
+        return float(score_metric_rows([metrics], weights=self.score_weights)[0]["score"])
 
     def _population_scores(self, pop, inst) -> list[float]:
         rows = []

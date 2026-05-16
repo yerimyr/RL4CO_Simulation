@@ -89,7 +89,7 @@ def main():
     # =========================
     # Hyperparameters
     # =========================
-    batch_size = 20
+    batch_size = 64
     eval_batch_size = 64
     eval_seed = 4321
     epochs = 500
@@ -231,9 +231,7 @@ def main():
         train_c_in = reward_metrics["C_in"]
         train_c_out = reward_metrics["C_out"]
         train_c_grp = reward_metrics["C_grp"]
-        train_weighted_c_in = env._terminal_reward_weights["C_in"] * train_c_in
-        train_weighted_c_out = env._terminal_reward_weights["C_out"] * train_c_out
-        train_weighted_c_grp = env._terminal_reward_weights["C_grp"] * train_c_grp
+        train_weighted_c_in, train_weighted_c_out, train_weighted_c_grp = env._terminal_reward_terms(reward_metrics)
 
         loss_pg = -(advantage.detach() * logp_sum).mean()
         loss = loss_pg - entropy_coef * entropy_mean
@@ -294,9 +292,7 @@ def main():
                 eval_c_in = eval_metrics["C_in"]
                 eval_c_out = eval_metrics["C_out"]
                 eval_c_grp = eval_metrics["C_grp"]
-                eval_weighted_c_in = env._terminal_reward_weights["C_in"] * eval_c_in
-                eval_weighted_c_out = env._terminal_reward_weights["C_out"] * eval_c_out
-                eval_weighted_c_grp = env._terminal_reward_weights["C_grp"] * eval_c_grp
+                eval_weighted_c_in, eval_weighted_c_out, eval_weighted_c_grp = env._terminal_reward_terms(eval_metrics)
 
             avg_eval = reward_eval.mean().item()
 

@@ -5,11 +5,7 @@ from collections import defaultdict
 import numpy as np
 
 
-DEFAULT_SCORE_WEIGHTS = {
-    "C_in": 0.5,
-    "C_out": -0.5,
-    "C_grp": -0.25,
-}
+SCORE_EPS = 1e-8
 
 
 def group_size_ok(group: list[int], inst) -> bool:
@@ -191,14 +187,27 @@ def _augment_reward_metrics(row: dict) -> dict:
     return out
 
 
+def dynamic_signed_score(row: dict) -> float:
+    c_in = float(row["C_in"])
+    c_out = float(row["C_out"])
+    c_grp = float(row["C_grp"])
+    denom = max(c_in + c_out + c_grp, SCORE_EPS)
+    lambda_in = c_in / denom
+    lambda_out = c_out / denom
+    lambda_grp = c_grp / denom
+    return lambda_in * c_in - lambda_out * c_out - lambda_grp * c_grp
+
+
 def score_metric_rows(rows: list[dict], weights: dict[str, float] | None = None) -> list[dict]:
-    weights = weights or DEFAULT_SCORE_WEIGHTS
     scored = []
     for row in rows:
         enriched = _augment_reward_metrics(row)
-        score = 0.0
-        for field, weight in weights.items():
-            score += weight * float(enriched[field])
+        if weights is None:
+            score = dynamic_signed_score(enriched)
+        else:
+            score = 0.0
+            for field, weight in weights.items():
+                score += weight * float(enriched[field])
         out = dict(enriched)
         out["score"] = score
         scored.append(out)
